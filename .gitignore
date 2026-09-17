@@ -1,0 +1,31 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+.venv/
+
+# PyInstaller & Build artifacts
+build/
+dist/
+*.manifest
+
+# Sensitive Auth Tokens & Cache
+.dv_token_cache.bin
+*.token
+
+# Local User Settings & Runtime Logs
+app_settings.json
+*.log
+*.tmp
+scratch/
+
+# OS & IDE
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

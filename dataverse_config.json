@@ -1,0 +1,9 @@
+{
+  "tenant_id": "70234e6c-22dd-42ec-b3ca-fee4c6a42328",
+  "client_id": "c16cfa67-0d61-46b4-8813-94197d53ce6b",
+  "environment_url": "https://orgfa075889.crm.dynamics.com",
+  "solution_name": "LOA MONITORING",
+  "solution_id": "34c6d4d3-b4b0-f111-aaac-7ced8d3b4de7",
+  "loa_table": "cr63f_loamonitoring",
+  "finance_table": "cr63f_financereference"
+}
