@@ -1,0 +1,573 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>LOA Monitoring Tool</title>
+  <link rel="icon" type="image/png" href="app-icon.png" />
+  <link rel="shortcut icon" href="icon.ico" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="app">
+
+    <!-- ============ TOP BAR ============ -->
+    <header class="topbar">
+      <div class="tb-left">
+        <img src="app-icon.png" class="tb-logo" alt="LOA Logo" />
+        <span class="tb-title">LOA Monitoring Tool</span>
+        <span class="tb-divider"></span>
+        <span class="tb-eyebrow">Desktop app developed by JMI</span>
+      </div>
+
+      <div class="tb-right">
+        <!-- Finance Reference Pill -->
+        <button class="pill-btn" id="btnTopFinancePill" title="Finance Data status">
+          <span class="pill-dot" id="dotFinanceRef"></span>
+          <span id="lblTopFinance">Finance Data: None</span>
+        </button>
+
+        <!-- Dataverse Connection Pill -->
+        <button class="pill-btn" id="btnTopConnPill" title="Dataverse connection">
+          <span class="pill-dot" id="dotTopConn"></span>
+          <span id="lblTopConn">Not connected</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- ============ NAVIGATION STRIP ============ -->
+    <nav class="nav-strip">
+      <div class="tabs-group">
+        <button class="tab-btn active" data-view="records">
+          <span>LOA Records Hub</span>
+        </button>
+        <button class="tab-btn" data-view="finance">
+          <span>Finance Data</span>
+        </button>
+        <button class="tab-btn" data-view="settings">
+          <span>Settings &amp; Connection</span>
+        </button>
+      </div>
+
+      <div class="nav-actions">
+        <button class="btn primary" id="btnOpenNewEntry" onclick="window.openNewEntry && window.openNewEntry()">
+          + New Entry / Log
+        </button>
+        <button class="btn" id="btnTopSyncDv">
+          Sync Dataverse
+        </button>
+      </div>
+    </nav>
+
+    <!-- ============ MAIN CONTENT AREA ============ -->
+    <main class="content-area">
+
+      <!-- ==================== VIEW 1: RECORDS HUB ==================== -->
+      <section class="view-panel active" id="view-records">
+        <!-- KPI Row -->
+        <div class="kpi-row">
+          <div class="kpi-card">
+            <span class="kpi-label">Total LOA Records</span>
+            <span class="kpi-value" id="kpiRecordCount">0</span>
+          </div>
+          <div class="kpi-card">
+            <span class="kpi-label">Total Contract Price (TCP)</span>
+            <span class="kpi-value" id="kpiTotalTcp">₱0.00</span>
+          </div>
+          <div class="kpi-card">
+            <span class="kpi-label">Total Payment Deductible</span>
+            <span class="kpi-value" id="kpiTotalDeductible">₱0.00</span>
+          </div>
+          <div class="kpi-card highlight">
+            <span class="kpi-label">Outstanding Balance</span>
+            <span class="kpi-value" id="kpiTotalBalance">₱0.00</span>
+          </div>
+        </div>
+
+        <!-- Filter & Table Panel -->
+        <div class="panel">
+          <div class="panel-head" style="flex-wrap: wrap; gap: 10px;">
+            <div style="display: flex; align-items: center; gap: 8px; flex: 1; min-width: 320px;">
+              <input type="text" id="searchInput" class="input" placeholder="Search across all fields..." style="max-width: 320px; width: 100%;" />
+              <select id="typeFilter" class="select" style="width: 150px;">
+                <option value="ALL">All Types</option>
+              </select>
+              <button class="btn xs ghost" id="btnClearFilters" title="Clear all filters & search">Clear Filters</button>
+            </div>
+
+            <!-- Staged Changes Toolbar (GDPT-style) -->
+            <div id="stagedEditsWrap" class="staged-edits-bar hidden">
+              <span id="unsavedEditsChip" class="dirty-chip">0 unsaved edits</span>
+              <button class="btn xs primary" id="btnSaveStagedEdits">Save to Dataverse</button>
+              <button class="btn xs ghost" id="btnDiscardStagedEdits">Discard</button>
+            </div>
+
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <!-- Columns visibility picker -->
+              <div class="col-picker-container">
+                <button class="btn xs ghost" id="btnColumnsPicker" title="Customize visible columns">Columns ▾</button>
+                <div class="col-picker-menu hidden" id="colPickerMenu">
+                  <!-- Populated by app.js -->
+                </div>
+              </div>
+
+              <span class="mono-input" id="lblGridCount" style="color: var(--ink3); font-size: 12px;">0 records</span>
+              <button class="btn" id="btnExportExcel">Export Excel</button>
+            </div>
+          </div>
+
+          <div class="table-wrap">
+            <div class="empty-state" id="tableEmptyState">
+              <p style="font-size: 14px; font-weight: 500; color: var(--ink);">No LOA records loaded</p>
+              <p style="font-size: 12.5px;">Click <strong>Sync Dataverse</strong> above or add a <strong>New Entry / Log</strong>.</p>
+            </div>
+            <table class="table-grid hidden" id="recordsTable">
+              <thead id="recordsTableHead"></thead>
+              <tbody id="recordsTableBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==================== VIEW 2: FINANCE DATA ==================== -->
+      <section class="view-panel" id="view-finance">
+        <div class="panel">
+          <div class="panel-head" style="flex-wrap: wrap; gap: 10px;">
+            <div style="display: flex; align-items: center; gap: 8px; flex: 1; min-width: 320px;">
+              <input type="text" id="searchInputFinance" class="input" placeholder="Search across all finance fields..." style="max-width: 300px; width: 100%;" />
+              <select id="typeFilterFinance" class="select" style="width: 150px;">
+                <option value="ALL">All Types</option>
+              </select>
+              <button class="btn xs ghost" id="btnClearFiltersFinance" title="Clear all filters & search">Clear Filters</button>
+            </div>
+
+            <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+              <!-- Columns visibility picker -->
+              <div class="col-picker-container">
+                <button class="btn xs ghost" id="btnColumnsPickerFinance" title="Customize visible columns">Columns ▾</button>
+                <div class="col-picker-menu hidden" id="colPickerMenuFinance">
+                  <!-- Populated by app.js -->
+                </div>
+              </div>
+
+              <span class="mono-input" id="lblFinanceGridCount" style="color: var(--ink3); font-size: 12px;">0 rows</span>
+              <button class="btn" id="btnExportExcelFinance">Export Excel</button>
+              <button class="btn primary" id="btnUploadFinance">Upload Excel / CSV</button>
+              <button class="btn danger-ghost" id="btnClearFinanceData">Clear</button>
+            </div>
+          </div>
+
+          <div class="table-wrap">
+            <div class="empty-state hidden" id="financeEmptyState">
+              <p style="font-size: 14px; font-weight: 500; color: var(--ink);">No Finance data loaded</p>
+              <p style="font-size: 12.5px;">Click <strong>Upload Excel / CSV</strong> or <strong>Sync Dataverse</strong> above.</p>
+            </div>
+            <table class="table-grid" id="financePreviewTable">
+              <thead id="financePreviewThead"></thead>
+              <tbody id="financePreviewTbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==================== VIEW 3: SETTINGS & CONNECTION ==================== -->
+      <section class="view-panel" id="view-settings">
+        <div class="centered-col">
+          <div class="panel">
+            <div class="panel-head" style="display: flex; align-items: center; justify-content: space-between;">
+              <h3 style="margin: 0; font-size: 15px; font-weight: 600; color: var(--ink);">Dataverse connection</h3>
+              <div class="conn-inline" style="display: flex; align-items: center; gap: 7px;">
+                <span class="conn-dot" id="setConnDot"></span>
+                <span class="eyebrow" id="setConnText" style="letter-spacing: 0.08em; font-size: 11px; font-weight: 600; color: var(--ink2);">DATAVERSE NOT CONNECTED</span>
+              </div>
+            </div>
+
+            <div class="panel-body form-rows">
+              <div class="form-row">
+                <span class="form-label">Environment URL</span>
+                <div class="form-control" style="flex: 1;">
+                  <input type="text" id="cfgEnvUrl" class="input mono-input" style="width: 100%;" placeholder="https://orgfa075889.crm.dynamics.com" />
+                </div>
+              </div>
+
+              <div class="form-row">
+                <span class="form-label">Sign-in</span>
+                <div class="form-control" style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                  <button class="btn primary" id="btnSignIn" type="button">Connect</button>
+                  <button class="btn hidden" id="btnSignOut" type="button">Disconnect</button>
+                  <span class="dv-badge hidden" id="dvStatus">WAITING FOR SIGN-IN...</span>
+                  <span class="form-hint" id="lblSignInHint">Device code sign-in via Microsoft</span>
+                </div>
+              </div>
+
+              <!-- Device code box (from Image 2) -->
+              <div class="device-code hidden" id="boxDeviceCode">
+                <div class="dc-left">
+                  <p>Open <a href="https://login.microsoft.com/device" target="_blank" id="lnkDeviceUrl">https://login.microsoft.com/device</a> and enter this code</p>
+                  <div class="code-row">
+                    <span class="code" id="lblDeviceCode">------</span>
+                    <button class="btn xs" id="btnCopyCode" type="button">Copy</button>
+                  </div>
+                </div>
+                <span class="eyebrow" id="lblDeviceWaiting" style="color: var(--ink3); font-size: 11px; letter-spacing: 0.08em;">WAITING…</span>
+              </div>
+
+              <div class="form-row">
+                <span class="form-label">Active solution</span>
+                <div class="form-control" style="width: 100%;">
+                  <select id="selSolution" class="select wide" style="width: 100%;">
+                    <option value="">Connect to Dataverse…</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="form-row">
+                <span class="form-label">Target LOA Table</span>
+                <div class="form-control" style="width: 100%;">
+                  <select id="selLoaTable" class="select wide" style="width: 100%;">
+                    <option value="cr63f_loamonitoring">LOA MONITORING (cr63f_loamonitoring)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="form-row">
+                <span class="form-label">Finance Data Table</span>
+                <div class="form-control" style="width: 100%;">
+                  <select id="selFinanceTable" class="select wide" style="width: 100%;">
+                    <option value="cr63f_financereference">FINANCE REFERENCE (cr63f_financereference)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="form-row">
+                <span class="form-label">Tenant ID</span>
+                <div class="form-control" style="width: 100%;">
+                  <input type="text" id="cfgTenantId" class="input mono-input" style="width: 100%;" placeholder="00000000-0000-0000-0000-000000000000" />
+                </div>
+              </div>
+
+              <div class="form-row">
+                <span class="form-label">Client ID</span>
+                <div class="form-control" style="width: 100%;">
+                  <input type="text" id="cfgClientId" class="input mono-input" style="width: 100%;" placeholder="00000000-0000-0000-0000-000000000000" />
+                </div>
+              </div>
+            </div>
+
+            <div class="panel-foot" style="display: flex; justify-content: flex-end; align-items: center; gap: 8px; padding: 14px 20px;">
+              <button class="btn" id="btnRefreshSolutions" type="button">Refresh</button>
+              <button class="btn primary" id="btnSaveConfig" type="button">Save connection</button>
+            </div>
+          </div>
+
+          <!-- ============ APPEARANCE PANEL (IMAGE 1 DESIGN) ============ -->
+          <div class="panel">
+            <div class="panel-head">
+              <h3 style="margin: 0; font-size: 15px; font-weight: 600; color: var(--ink);">Appearance</h3>
+            </div>
+            <div class="panel-body form-rows">
+              <div class="form-row">
+                <span class="form-label">Theme</span>
+                <div class="form-control">
+                  <div class="seg" id="themeSeg">
+                    <button class="btn xs active" data-theme="light" type="button">Light</button>
+                    <button class="btn xs" data-theme="dark" type="button">Dark</button>
+                  </div>
+                </div>
+              </div>
+
+              <div class="form-row">
+                <span class="form-label">Table density</span>
+                <div class="form-control">
+                  <div class="seg" id="densitySeg">
+                    <button class="btn xs active" data-density="comfortable" type="button">Comfortable</button>
+                    <button class="btn xs" data-density="compact" type="button">Compact</button>
+                  </div>
+                </div>
+              </div>
+
+              <div class="form-row">
+                <span class="form-label">Publish</span>
+                <div class="form-control">
+                  <label class="pm-checkbox-label">
+                    <input type="checkbox" id="setRememberTable" class="pm-checkbox" checked />
+                    <span class="pm-custom-check"></span>
+                    <span style="font-size: 13px; color: var(--ink2);">Remember the publish table selection between sessions</span>
+                  </label>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </main>
+
+  </div>
+
+  <!-- ============ RECORD ENTRY / EDIT DRAWER ============ -->
+  <div class="drawer-backdrop" id="entryDrawer">
+    <div class="drawer-content">
+      <div class="drawer-head">
+        <h2 id="drawerTitle">New LOA Entry / Log</h2>
+        <button class="drawer-close-btn" id="btnCloseDrawer">&times;</button>
+      </div>
+
+      <div class="drawer-body">
+        <input type="hidden" id="fRecordId" value="" />
+
+        <!-- 1. Key Identifiers & Lookup Triggers -->
+        <div class="section-subhead">
+          1. Key Identifiers &amp; Lookup Triggers
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+          <div style="display: flex; flex-direction: column; gap: 4px;">
+            <label class="form-label">TYPE <strong style="color: var(--bad);">*</strong></label>
+            <select id="fType" class="select" required style="width: 100%; box-sizing: border-box;">
+              <option value="LAND">LAND</option>
+              <option value="ROW">ROW</option>
+              <option value="LAND-SPECIAL">LAND-SPECIAL</option>
+            </select>
+          </div>
+
+          <div style="display: flex; flex-direction: column; gap: 4px; position: relative;">
+            <label class="form-label">AREA-INDEX</label>
+            <div style="position: relative; width: 100%;">
+              <input type="text" id="fAreaIndex" class="input mono-input" style="width: 100%; box-sizing: border-box;" placeholder="e.g. PAL-10978" autocomplete="off" />
+              <div class="area-dropdown hidden" id="areaIndexSuggestions"></div>
+            </div>
+          </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+          <div style="display: flex; flex-direction: column; gap: 4px;">
+            <label class="form-label">INDEX NO</label>
+            <input type="text" id="fIndexNo" class="input mono-input" style="width: 100%; box-sizing: border-box;" placeholder="e.g. 10978 or C-101" />
+          </div>
+
+          <div style="display: flex; flex-direction: column; gap: 4px;">
+            <label class="form-label">TITLE NO</label>
+            <input type="text" id="fTitleNo" class="input mono-input" style="width: 100%; box-sizing: border-box;" placeholder="e.g. T-123456" />
+          </div>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 4px;">
+          <label class="form-label">CONTROL NUMBER</label>
+          <input type="text" id="fControl" class="input mono-input" placeholder="e.g. ZAM-PAL-06225" />
+        </div>
+
+        <!-- 2. Payment Status (Manual entry & live calculation) -->
+        <div class="section-subhead">
+          2. Payment Status
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+          <div style="display: flex; flex-direction: column; gap: 4px;">
+            <label class="form-label">Total Contract Price</label>
+            <input type="text" id="fTcp" class="input mono-input" placeholder="0.00" />
+          </div>
+
+          <div style="display: flex; flex-direction: column; gap: 4px;">
+            <label class="form-label">Payment Deductible to TCP</label>
+            <input type="text" id="fPaymentDeductible" class="input mono-input" placeholder="0.00" />
+          </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+          <div style="display: flex; flex-direction: column; gap: 4px;">
+            <label class="form-label">Balance</label>
+            <input type="text" id="fBalance" class="input mono-input readonly-input" placeholder="0.00" readonly tabindex="-1" />
+          </div>
+
+          <div style="display: flex; flex-direction: column; gap: 4px;">
+            <label class="form-label">% Paid</label>
+            <input type="text" id="fPercentPaid" class="input mono-input readonly-input" placeholder="0.00%" readonly tabindex="-1" />
+          </div>
+        </div>
+
+        <!-- 3. Ownership & Representation -->
+        <div class="section-subhead">
+          3. Ownership &amp; Representation
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 4px;">
+          <label class="form-label">Registered Owner</label>
+          <input type="text" id="fRegisteredOwner" class="input" placeholder="e.g. Juan Dela Cruz" />
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 4px;">
+          <label class="form-label">Authorized Representative</label>
+          <input type="text" id="fAuthorizedRepresentative" class="input" placeholder="e.g. Maria Dela Cruz" />
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 4px;">
+          <label class="form-label">Entity</label>
+          <select id="fEntity" class="select" style="width: 100%; box-sizing: border-box;">
+            <option value="">-- Select Entity --</option>
+            <option value="CIHC">CIHC</option>
+            <option value="JJPNM">JJPNM</option>
+            <option value="LHHC">LHHC</option>
+            <option value="LLL">LLL</option>
+            <option value="MBHC">MBHC</option>
+            <option value="MGEN">MGEN</option>
+            <option value="MNEC">MNEC</option>
+            <option value="PIC">PIC</option>
+            <option value="SPBULC">SPBULC</option>
+            <option value="SPCC">SPCC</option>
+            <option value="SPNEC">SPNEC</option>
+            <option value="SPPPHI">SPPPHI</option>
+            <option value="SPTANC">SPTANC</option>
+            <option value="SPNorC">SPNorC</option>
+            <option value="TNI">TNI</option>
+            <option value="TSPI">TSPI</option>
+            <option value="SPTARC">SPTARC</option>
+            <option value="SPTAGC">SPTAGC</option>
+            <option value="SPPC">SPPC</option>
+          </select>
+        </div>
+
+        <!-- 4. Property Location & Lot Metrics -->
+        <div class="section-subhead">
+          4. Property Location &amp; Metrics
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+          <div style="display: flex; flex-direction: column; gap: 4px;">
+            <label class="form-label">Province</label>
+            <input type="text" id="fProvince" class="input" placeholder="e.g. ZAMBALES" />
+          </div>
+
+          <div style="display: flex; flex-direction: column; gap: 4px;">
+            <label class="form-label">Municipality</label>
+            <input type="text" id="fMunicipality" class="input" placeholder="e.g. PALAUIG" />
+          </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+          <div style="display: flex; flex-direction: column; gap: 4px;">
+            <label class="form-label">Adjusted Barangay</label>
+            <input type="text" id="fDbAdjustedBarangay" class="input" placeholder="e.g. SALAZA" />
+          </div>
+
+          <div style="display: flex; flex-direction: column; gap: 4px;">
+            <label class="form-label">Lot Area (Ha)</label>
+            <input type="number" step="any" id="fLotAreaHa" class="input mono-input" placeholder="e.g. 1.01" />
+          </div>
+        </div>
+
+        <!-- 5. Contract, Status & Negotiation -->
+        <div class="section-subhead">
+          5. Contract &amp; Negotiation
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+          <div style="display: flex; flex-direction: column; gap: 4px;">
+            <label class="form-label">Contract Type</label>
+            <select id="fContractType" class="select">
+              <option value="">-- Select Contract Type --</option>
+              <option value="AR Only">AR Only</option>
+              <option value="CDOS ONLY">CDOS ONLY</option>
+              <option value="CTS">CTS</option>
+              <option value="CTS AND DOAS">CTS AND DOAS</option>
+              <option value="CTS ONLY">CTS ONLY</option>
+              <option value="CTS WITH DOAS">CTS WITH DOAS</option>
+              <option value="CTS WITH ERA">CTS WITH ERA</option>
+              <option value="CTS WITH MOA">CTS WITH MOA</option>
+              <option value="DOAS AND LA">DOAS AND LA</option>
+              <option value="DOAS ONLY">DOAS ONLY</option>
+              <option value="DOAS WITH ERA">DOAS WITH ERA</option>
+              <option value="DOAS WITH ERA AND CTS">DOAS WITH ERA AND CTS</option>
+              <option value="EM ONLY">EM ONLY</option>
+              <option value="ERA ONLY">ERA ONLY</option>
+              <option value="EROWA">EROWA</option>
+              <option value="EROWA ONLY">EROWA ONLY</option>
+              <option value="LA ONLY">LA ONLY</option>
+              <option value="MOA ONLY">MOA ONLY</option>
+              <option value="MOA WITH DOAS">MOA WITH DOAS</option>
+              <option value="NO CONTRACT">NO CONTRACT</option>
+              <option value="NO CONTRACTS & AR">NO CONTRACTS & AR</option>
+              <option value="NO DOCUMENTS">NO DOCUMENTS</option>
+            </select>
+          </div>
+
+          <div style="display: flex; flex-direction: column; gap: 4px;">
+            <label class="form-label">Mode</label>
+            <select id="fMode" class="select">
+              <option value="">-- Select Mode --</option>
+              <option value="FOR VERIFICATION">FOR VERIFICATION</option>
+              <option value="NOT AVAILABLE">NOT AVAILABLE</option>
+              <option value="OPEN TO LEASE">OPEN TO LEASE</option>
+              <option value="OPEN TO SALE">OPEN TO SALE</option>
+              <option value="SECURED SALE">SECURED SALE</option>
+              <option value="SECURED LEASE">SECURED LEASE</option>
+              <option value="SOLD TO PARTNER">SOLD TO PARTNER</option>
+              <option value="SS-STP">SS-STP</option>
+              <option value="TO BE IDENTIFIED">TO BE IDENTIFIED</option>
+              <option value="RESCINDED">RESCINDED</option>
+              <option value="NOT USABLE">NOT USABLE</option>
+              <option value="SECURED SALE - NON SP">SECURED SALE - NON SP</option>
+              <option value="SECURED LEASE - NON SP">SECURED LEASE - NON SP</option>
+            </select>
+          </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+          <div style="display: flex; flex-direction: column; gap: 4px;">
+            <label class="form-label">Conversion Status</label>
+            <input type="text" id="fConversionStatus" class="input" placeholder="e.g. NOT YET ENDORSED" />
+          </div>
+
+          <div style="display: flex; flex-direction: column; gap: 4px;">
+            <label class="form-label">RCC Terms</label>
+            <input type="text" id="fRccTerms" class="input" placeholder="e.g. Standard" />
+          </div>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 4px;">
+          <label class="form-label">RCC Price</label>
+          <input type="text" id="fRccPrice" class="input mono-input" placeholder="0.00" />
+        </div>
+
+        <!-- 5. Milestone Dates -->
+        <div class="section-subhead">
+          5. Milestone Dates
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px;">
+          <div style="display: flex; flex-direction: column; gap: 4px;">
+            <label class="form-label">Secured Date</label>
+            <input type="text" id="fSecuredDate" class="input mono-input date-masked" placeholder="MM/DD/YYYY" maxlength="10" />
+          </div>
+
+          <div style="display: flex; flex-direction: column; gap: 4px;">
+            <label class="form-label">Secured Endorse Date</label>
+            <input type="text" id="fSecuredEndorseDate" class="input mono-input date-masked" placeholder="MM/DD/YYYY" maxlength="10" />
+          </div>
+
+          <div style="display: flex; flex-direction: column; gap: 4px;">
+            <label class="form-label">Endorsed Date</label>
+            <input type="text" id="fEndorsedDate" class="input mono-input date-masked" placeholder="MM/DD/YYYY" maxlength="10" />
+          </div>
+        </div>
+
+        <!-- 6. Additional Dynamic Attributes -->
+        <div id="dynamicAttributesContainer"></div>
+      </div>
+
+      <div class="drawer-foot">
+        <button class="btn ghost" id="btnCancelDrawer">Cancel</button>
+        <button class="btn primary" id="btnSaveDrawerEntry">Save Entry to Dataverse</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- TOAST CONTAINER -->
+  <div class="toast-wrap" id="toastWrap"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>
