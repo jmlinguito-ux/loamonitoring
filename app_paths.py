@@ -44,7 +44,7 @@ def _migrate_legacy_data(destination: str) -> None:
     bundled = getattr(sys, "_MEIPASS", "")
     if bundled and os.path.normcase(bundled) != os.path.normcase(sources[0]):
         sources.append(bundled)
-    for name in ("app_settings.json", "dataverse_config.json", ".dv_token_cache.bin"):
+    for name in ("app_settings.json", "dataverse_config.json", ".dv_token_cache.bin", "entry_logs_cache.json"):
         new_path = os.path.join(destination, name)
         if os.path.exists(new_path):
             continue
