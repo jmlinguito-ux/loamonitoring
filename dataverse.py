@@ -10,8 +10,10 @@ import concurrent.futures as cf
 import json
 import os
 import re
+from urllib.parse import quote
 import sys
 import time
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
 import requests
@@ -49,7 +51,9 @@ def load_config() -> dict:
                 "solution_name": "SOURCING AND NEGO (BATANGASNEGO)",
                 "solution_id": "a7f41cec-5786-f111-ab0f-7ced8d3b4de7",
                 "loa_table": "cr63f_loamonitoring",
-                "finance_table": "cr63f_appendedfinance"
+                "finance_table": "cr63f_financereference",
+                "conversion_table": "cr63f_landconversionreference",
+                "logs_table": "cr63f_loamonitoringlogs"
             }
     with open(path, 'r', encoding='utf-8') as f:
         cfg = json.load(f)
@@ -63,8 +67,16 @@ def load_config() -> dict:
             save_config(cfg)
         except Exception:
             pass
+    if cfg.get('conversion_table') in ('', None):
+        cfg['conversion_table'] = 'cr63f_landconversionreference'
+        try:
+            save_config(cfg)
+        except Exception:
+            pass
     if cfg.get('loa_table') in ('', None):
         cfg['loa_table'] = 'cr63f_loamonitoring'
+    if cfg.get('logs_table') in ('', None):
+        cfg['logs_table'] = 'cr63f_loamonitoringlogs'
     return cfg
 
 
@@ -83,6 +95,14 @@ def _norm(s: Any) -> str:
     return re.sub(r'[^a-z0-9]', '', str(s or '').lower())
 
 
+def _clean_key(s: Any) -> str:
+    cleaned = re.sub(r'[^a-z0-9]', '', str(s or '').lower())
+    for prefix in ('cr63f', 'new', 'crc5e'):
+        if cleaned.startswith(prefix):
+            cleaned = cleaned[len(prefix):]
+    return cleaned
+
+
 def _extract_label(disp: Any, default: str = '') -> str:
     if not isinstance(disp, dict):
         return default or ''
@@ -93,6 +113,131 @@ def _extract_label(disp: Any, default: str = '') -> str:
     if isinstance(localized, list) and len(localized) > 0 and isinstance(localized[0], dict) and localized[0].get('Label'):
         return str(localized[0].get('Label')).strip()
     return default or ''
+
+
+def _clean_dataverse_datetime(val: Any, behavior: str = 'UserLocal') -> Optional[str]:
+    """Sanitize datetime string for Dataverse CrmDateTime (range: 1753-01-01 to 9999-12-31).
+    Returns ISO date string, or None if invalid or out of range.
+
+    ``behavior`` is the column's DateTimeBehavior. App times are local (PH)
+    wall-clock times, so for UserLocal columns they are converted to UTC before
+    the 'Z' suffix is added; labelling local time as 'Z' shifted them by +8h.
+    TimeZoneIndependent columns get the wall-clock time without a zone, and
+    DateOnly columns get the date only.
+    """
+    if val is None:
+        return None
+    s = str(val).strip()
+    if not s or s.lower() in ('none', 'null', '-', 'undefined'):
+        return None
+
+    # Handle 0001-01-01 or 01/01/0001 fast check
+    if '0001' in s or '0000' in s:
+        return None
+
+    explicit_utc = s.endswith('Z') or bool(re.search(r'[+-]\d{2}:?\d{2}$', s))
+    if explicit_utc and 'T' in s:
+        try:
+            aware = datetime.fromisoformat(s.replace('Z', '+00:00'))
+            if aware.tzinfo is not None:
+                if not (1753 <= aware.year <= 9999):
+                    return None
+                if behavior == 'DateOnly':
+                    return aware.astimezone().strftime('%Y-%m-%d')
+                utc_value = aware.astimezone(timezone.utc)
+                if behavior == 'TimeZoneIndependent':
+                    return aware.astimezone().strftime('%Y-%m-%dT%H:%M:%S')
+                return utc_value.strftime('%Y-%m-%dT%H:%M:%SZ')
+        except ValueError:
+            pass
+
+    formats = [
+        ('%m/%d/%Y %I:%M:%S %p', True),
+        ('%m/%d/%Y %I:%M %p', True),
+        ('%m/%d/%Y %H:%M:%S', True),
+        ('%m/%d/%Y %H:%M', True),
+        ('%Y-%m-%d %H:%M:%S', True),
+        ('%Y-%m-%d %H:%M', True),
+        ('%Y-%m-%dT%H:%M:%SZ', True),
+        ('%Y-%m-%dT%H:%M:%S', True),
+        ('%m/%d/%Y', False),
+        ('%Y-%m-%d', False),
+        ('%m/%d/%y', False),
+        ('%Y/%m/%d', False),
+    ]
+
+    dt = None
+    has_time = False
+    for fmt, with_t in formats:
+        try:
+            dt = datetime.strptime(s, fmt)
+            has_time = with_t
+            break
+        except (ValueError, TypeError):
+            continue
+
+    if not dt:
+        parts = re.split(r'[-/]', s.split('T')[0].split(' ')[0])
+        if len(parts) == 3:
+            try:
+                p0, p1, p2 = int(parts[0]), int(parts[1]), int(parts[2])
+                if p0 > 100:
+                    year, month, day = p0, p1, p2
+                elif p2 > 100:
+                    year, month, day = p2, p0, p1
+                elif p2 < 100:
+                    year = 2000 + p2 if p2 < 50 else 1900 + p2
+                    month, day = p0, p1
+                else:
+                    return None
+                dt = datetime(year, month, day)
+            except Exception:
+                return None
+        else:
+            return None
+
+    if dt.year < 1753 or dt.year > 9999:
+        return None
+
+    if behavior == 'DateOnly' or not (has_time and (dt.hour != 0 or dt.minute != 0 or dt.second != 0)):
+        return dt.strftime('%Y-%m-%d')
+    if behavior == 'TimeZoneIndependent':
+        return dt.strftime('%Y-%m-%dT%H:%M:%S')
+    # UserLocal (Dataverse's default): local wall-clock time -> UTC.
+    return dt.astimezone(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
+
+
+_BLANK_TEXT = ('', 'none', 'null', '-', '—', 'undefined', 'n/a', 'na', '#n/a')
+
+
+def _parse_number_strict(val: Any) -> Optional[float]:
+    """A number written as money/percent text, or None if it is not one.
+
+    Accepts currency symbols, thousands separators, spaces, a trailing % and
+    accounting negatives '(1,234.00)'. Anything else (e.g. '1.2M', 'N/A') is
+    not a number; the caller decides whether that is an error.
+    """
+    if isinstance(val, bool):
+        return None
+    if isinstance(val, (int, float)):
+        return float(val)
+    s = str(val).strip()
+    negative = False
+    if s.startswith('(') and s.endswith(')'):
+        negative, s = True, s[1:-1].strip()
+    s = re.sub(r'[₱$\s,]', '', s)
+    if s.endswith('%'):
+        s = s[:-1]
+    if s.startswith('(') and s.endswith(')'):
+        negative, s = True, s[1:-1]
+    if not re.fullmatch(r'[-+]?(\d+(\.\d*)?|\.\d+)([eE][-+]?\d+)?', s):
+        return None
+    number = float(s)
+    return -abs(number) if negative else number
+
+
+class ConcurrencyError(RuntimeError):
+    """The record changed in Dataverse after it was read (HTTP 412)."""
 
 
 class DataverseClient:
@@ -107,6 +252,7 @@ class DataverseClient:
         self._cache: Optional[msal.SerializableTokenCache] = None
         self._pending_flow: Optional[dict] = None
         self._meta_cache: Dict[str, dict] = {}
+        self._datetime_behavior_cache: Dict[str, Dict[str, str]] = {}
         self._entity_info_cache: Dict[str, dict] = {}
         self._entity_defs_cache: Optional[List[dict]] = None
         self._solution_tables_cache: Dict[str, List[dict]] = {}
@@ -211,6 +357,14 @@ class DataverseClient:
         except Exception:
             pass
 
+    def current_user_name(self) -> str:
+        """Signed-in account's user name (e-mail), or '' when unknown."""
+        try:
+            accounts = self._msal_app().get_accounts()
+            return str(accounts[0].get('username') or '') if accounts else ''
+        except Exception:
+            return ''
+
     def _store_token(self, result: dict) -> None:
         self._token = result['access_token']
         self._token_expiry = time.time() + result.get('expires_in', 3600) - 60
@@ -236,16 +390,41 @@ class DataverseClient:
             h['Prefer'] = 'odata.include-annotations="OData.Community.Display.V1.FormattedValue"'
         return h
 
+    # Dataverse service protection: 429 (too many requests) or 503 means the
+    # request was NOT processed, so it is safe to wait and send it again, even
+    # for a POST. Retry-After says how long to wait.
+    _THROTTLE_STATUSES = (429, 503)
+    _THROTTLE_ATTEMPTS = 6
+
+    def _throttle_wait(self, resp, attempt: int) -> float:
+        try:
+            retry_after = float(resp.headers.get('Retry-After'))
+        except (TypeError, ValueError, AttributeError):
+            retry_after = 0.0
+        return min(60.0, max(retry_after, 2.0 * (2 ** attempt)))
+
+    def _send(self, method: str, url: str, **kwargs):
+        """One HTTP request, retried while Dataverse answers 429/503."""
+        sender = getattr(self._session, method)
+        for attempt in range(self._THROTTLE_ATTEMPTS):
+            resp = sender(url, **kwargs)
+            status = getattr(resp, 'status_code', None)
+            if isinstance(status, int) and status in self._THROTTLE_STATUSES and attempt < self._THROTTLE_ATTEMPTS - 1:
+                time.sleep(self._throttle_wait(resp, attempt))
+                continue
+            return resp
+        return resp
+
     def get(self, url_or_path: str, params: Optional[dict] = None, with_formatting: bool = True) -> dict:
         url = url_or_path if url_or_path.startswith('http') else f'{self.api_root}{url_or_path.lstrip("/")}'
-        resp = self._session.get(url, headers=self._headers(with_formatting), params=params, timeout=_TIMEOUT)
+        resp = self._send('get', url, headers=self._headers(with_formatting), params=params, timeout=_TIMEOUT)
         if not resp.ok:
             raise RuntimeError(f"Dataverse GET {url} failed ({resp.status_code}): {resp.text}")
         return resp.json()
 
     def post(self, entity_set: str, payload: dict) -> Tuple[int, str, dict]:
         url = f'{self.api_root}{entity_set.lstrip("/")}'
-        resp = self._session.post(url, headers=self._headers(False), json=payload, timeout=_TIMEOUT)
+        resp = self._send('post', url, headers=self._headers(False), json=payload, timeout=_TIMEOUT)
         if not (200 <= resp.status_code < 300):
             raise RuntimeError(f"Dataverse POST {entity_set} failed ({resp.status_code}): {resp.text}")
         entity_id = resp.headers.get('OData-EntityId', '')
@@ -257,18 +436,61 @@ class DataverseClient:
         body = resp.json() if resp.content and resp.status_code != 204 else {}
         return resp.status_code, created_guid, body
 
-    def patch(self, entity_set: str, record_id: str, payload: dict) -> int:
+    def patch(self, entity_set: str, record_id: str, payload: dict, expected_etag: Optional[str] = None) -> int:
+        return self.patch_with_version(entity_set, record_id, payload, expected_etag=expected_etag)[0]
+
+    def patch_with_version(self, entity_set: str, record_id: str, payload: dict,
+                           expected_etag: Optional[str] = None,
+                           select_attr: Optional[str] = None) -> Tuple[int, str]:
+        """PATCH a record; returns (status, new etag or '').
+
+        expected_etag: sent as If-Match, so the save fails (412) when someone
+        else changed the record since it was read. select_attr: ask Dataverse to
+        return the updated record's version (Prefer: return=representation),
+        so the app can make its next conditional save without another read.
+        """
         clean_id = record_id.strip("{}'\"")
         url = f'{self.api_root}{entity_set.lstrip("/")}({clean_id})'
-        resp = self._session.patch(url, headers=self._headers(False), json=payload, timeout=_TIMEOUT)
+        if select_attr:
+            url += f'?$select={select_attr}'
+        # Dataverse sometimes closes a connection before returning the PATCH
+        # response (RemoteDisconnected / Connection aborted). PATCH replaces
+        # the same field values, so retrying this request is idempotent. Do not
+        # apply this retry to POST audit writes, where it could duplicate logs.
+        retryable_errors = (requests.exceptions.ConnectionError, requests.exceptions.Timeout)
+        resp = None
+        headers = self._headers(False)
+        if expected_etag:
+            headers['If-Match'] = expected_etag
+        if select_attr:
+            headers['Prefer'] = 'return=representation'
+        attempts = 1 if expected_etag else 3
+        for attempt in range(attempts):
+            try:
+                resp = self._send('patch', url, headers=headers, json=payload, timeout=_TIMEOUT)
+                break
+            except retryable_errors:
+                if attempt == attempts - 1:
+                    raise
+                time.sleep(0.5 * (2 ** attempt))
+        if resp.status_code == 412:
+            raise ConcurrencyError('This record was changed in Dataverse by someone else since it was loaded. Reload and try again.')
         if not (200 <= resp.status_code < 300):
             raise RuntimeError(f"Dataverse PATCH {entity_set}({record_id}) failed ({resp.status_code}): {resp.text}")
-        return resp.status_code
+        new_etag = ''
+        if select_attr and resp.status_code == 200:
+            try:
+                body = resp.json()
+                candidate = body.get('@odata.etag') if isinstance(body, dict) else ''
+                new_etag = candidate if isinstance(candidate, str) else ''
+            except Exception:
+                new_etag = ''
+        return resp.status_code, new_etag
 
     def delete(self, entity_set: str, record_id: str) -> int:
         clean_id = record_id.strip("{}'\"")
         url = f'{self.api_root}{entity_set.lstrip("/")}({clean_id})'
-        resp = self._session.delete(url, headers=self._headers(False), timeout=_TIMEOUT)
+        resp = self._send('delete', url, headers=self._headers(False), timeout=_TIMEOUT)
         if not (200 <= resp.status_code < 300):
             raise RuntimeError(f"Dataverse DELETE {entity_set}({record_id}) failed ({resp.status_code}): {resp.text}")
         return resp.status_code
@@ -281,15 +503,36 @@ class DataverseClient:
             return self._entity_info_cache[clean]
 
         url = f"EntityDefinitions(LogicalName='{clean}')"
-        data = self.get(url, params={'$select': 'EntitySetName,PrimaryIdAttribute,DisplayName,LogicalName'})
+        data = self.get(url, params={'$select': 'EntitySetName,PrimaryIdAttribute,PrimaryNameAttribute,DisplayName,LogicalName'})
         info = {
             'logical_name': clean,
             'entity_set': data.get('EntitySetName', f"{clean}s"),
             'primary_id': data.get('PrimaryIdAttribute', f"{clean}id"),
+            'primary_name': data.get('PrimaryNameAttribute', f"{clean}name"),
             'display_name': _extract_label(data.get('DisplayName'), clean)
         }
         self._entity_info_cache[clean] = info
         return info
+
+    def get_datetime_behaviors(self, logical_name: str) -> Dict[str, str]:
+        """Map each DateTime column to its behavior: UserLocal, DateOnly or TimeZoneIndependent."""
+        clean = logical_name.strip().lower()
+        if clean in self._datetime_behavior_cache:
+            return self._datetime_behavior_cache[clean]
+        behaviors: Dict[str, str] = {}
+        try:
+            url = (f"EntityDefinitions(LogicalName='{clean}')/Attributes/"
+                   f"Microsoft.Dynamics.CRM.DateTimeAttributeMetadata")
+            data = self.get(url, params={'$select': 'LogicalName,DateTimeBehavior'}, with_formatting=False)
+            for attr in data.get('value', []):
+                value = (attr.get('DateTimeBehavior') or {}).get('Value')
+                if attr.get('LogicalName') and value:
+                    behaviors[attr['LogicalName']] = value
+        except Exception:
+            # Unknown behavior falls back to UserLocal, Dataverse's default.
+            behaviors = {}
+        self._datetime_behavior_cache[clean] = behaviors
+        return behaviors
 
     def get_entity_attributes(self, logical_name: str) -> Dict[str, dict]:
         """Fetch all attributes and their display names for an entity."""
@@ -316,6 +559,151 @@ class DataverseClient:
             }
         self._meta_cache[clean] = attr_map
         return attr_map
+
+    def create_action_type_column(self, logical_name: str = 'cr63f_loamonitoringlogs') -> dict:
+        """Add the approved text Action Type column if the audit table lacks it."""
+        table = logical_name.strip().lower()
+        try:
+            attrs = self.get_entity_attributes(table)
+            if 'cr63f_actiontype' in attrs:
+                return {'created': False, 'logical_name': 'cr63f_actiontype'}
+        except Exception:
+            pass
+
+        schema_timeout = 180
+        label = {'@odata.type': 'Microsoft.Dynamics.CRM.Label',
+                 'LocalizedLabels': [{'@odata.type': 'Microsoft.Dynamics.CRM.LocalizedLabel', 'Label': 'Action Type', 'LanguageCode': 1033}],
+                 'UserLocalizedLabel': {'Label': 'Action Type', 'LanguageCode': 1033}}
+        payload = {
+            '@odata.type': 'Microsoft.Dynamics.CRM.StringAttributeMetadata',
+            'AttributeType': 'String',
+            'AttributeTypeName': {'Value': 'StringType'},
+            'SchemaName': 'cr63f_ActionType',
+            'DisplayName': label,
+            'RequiredLevel': {
+                'Value': 'None', 'CanBeChanged': True,
+                'ManagedPropertyLogicalName': 'canmodifyrequirementlevelsettings',
+            },
+            'MaxLength': 100,
+            'FormatName': {'Value': 'Text'},
+        }
+        payload['DisplayName']['LocalizedLabels'][0]['@odata.type'] = 'Microsoft.Dynamics.CRM.LocalizedLabel'
+        payload['DisplayName']['UserLocalizedLabel']['@odata.type'] = 'Microsoft.Dynamics.CRM.LocalizedLabel'
+        path = f"EntityDefinitions(LogicalName='{table}')/Attributes"
+        url = f'{self.api_root}{path}'
+
+        try:
+            response = self._session.post(
+                url, headers=self._headers(False), json=payload, timeout=schema_timeout
+            )
+            if not (200 <= response.status_code < 300):
+                if 'already exists' in response.text.lower() or 'duplicate' in response.text.lower() or '0x80040203' in response.text.lower():
+                    self._meta_cache.pop(table, None)
+                    return {'created': False, 'logical_name': 'cr63f_actiontype'}
+                raise RuntimeError(
+                    f"Dataverse could not add Action Type to {table} "
+                    f"({response.status_code}): {response.text}"
+                )
+        except requests.exceptions.ReadTimeout:
+            print(f"Notice: Action Type attribute creation on {table} read timed out (in progress on server).")
+
+        publish_xml = (
+            '<importexportxml><entities><entity>'
+            f'{table}'
+            '</entity></entities></importexportxml>'
+        )
+        try:
+            publish_response = self._session.post(
+                f'{self.api_root}PublishXml', headers=self._headers(False),
+                json={'ParameterXml': publish_xml}, timeout=schema_timeout
+            )
+            if not (200 <= publish_response.status_code < 300):
+                print(f"Notice: PublishXml for {table} returned status {publish_response.status_code}")
+        except requests.exceptions.ReadTimeout:
+            print(f"Notice: PublishXml for {table} read timed out (publishing continues in background).")
+
+        self._meta_cache.pop(table, None)
+        try:
+            self.get_entity_attributes(table)
+        except Exception:
+            pass
+        return {'created': True, 'logical_name': 'cr63f_actiontype'}
+
+    def ensure_acquisition_sublevel_column(self, logical_name: str) -> dict:
+        """Ensure the optional text Acquisition Sub-Level column exists on a table."""
+        table = logical_name.strip().lower()
+        try:
+            attrs = self.get_entity_attributes(table)
+            if 'cr63f_acquisitionsublevel' in attrs:
+                return {'created': False, 'logical_name': 'cr63f_acquisitionsublevel', 'table': table}
+        except Exception:
+            pass
+
+        schema_timeout = 180
+        display = 'Acquisition Sub-Level'
+        label = {
+            '@odata.type': 'Microsoft.Dynamics.CRM.Label',
+            'LocalizedLabels': [{
+                '@odata.type': 'Microsoft.Dynamics.CRM.LocalizedLabel',
+                'Label': display, 'LanguageCode': 1033,
+            }],
+            'UserLocalizedLabel': {
+                '@odata.type': 'Microsoft.Dynamics.CRM.LocalizedLabel',
+                'Label': display, 'LanguageCode': 1033,
+            },
+        }
+        payload = {
+            '@odata.type': 'Microsoft.Dynamics.CRM.StringAttributeMetadata',
+            'AttributeType': 'String',
+            'AttributeTypeName': {'Value': 'StringType'},
+            'SchemaName': 'cr63f_AcquisitionSubLevel',
+            'DisplayName': label,
+            'RequiredLevel': {
+                'Value': 'None', 'CanBeChanged': True,
+                'ManagedPropertyLogicalName': 'canmodifyrequirementlevelsettings',
+            },
+            'MaxLength': 100,
+            'FormatName': {'Value': 'Text'},
+        }
+        path = f"EntityDefinitions(LogicalName='{table}')/Attributes"
+
+        try:
+            response = self._session.post(
+                f'{self.api_root}{path}', headers=self._headers(False),
+                json=payload, timeout=schema_timeout,
+            )
+            if not (200 <= response.status_code < 300):
+                if 'already exists' in response.text.lower() or 'duplicate' in response.text.lower() or '0x80040203' in response.text.lower():
+                    self._meta_cache.pop(table, None)
+                    return {'created': False, 'logical_name': 'cr63f_acquisitionsublevel', 'table': table}
+                raise RuntimeError(
+                    f"Dataverse could not add Acquisition Sub-Level to {table} "
+                    f"({response.status_code}): {response.text}"
+                )
+        except requests.exceptions.ReadTimeout:
+            print(f"Notice: Acquisition Sub-Level attribute creation on {table} read timed out (in progress on server).")
+
+        publish_xml = (
+            '<importexportxml><entities><entity>'
+            f'{table}'
+            '</entity></entities></importexportxml>'
+        )
+        try:
+            publish_response = self._session.post(
+                f'{self.api_root}PublishXml', headers=self._headers(False),
+                json={'ParameterXml': publish_xml}, timeout=schema_timeout,
+            )
+            if not (200 <= publish_response.status_code < 300):
+                print(f"Notice: PublishXml for {table} returned status {publish_response.status_code}")
+        except requests.exceptions.ReadTimeout:
+            print(f"Notice: PublishXml for {table} read timed out (publishing continues in background).")
+
+        self._meta_cache.pop(table, None)
+        try:
+            self.get_entity_attributes(table)
+        except Exception:
+            pass
+        return {'created': True, 'logical_name': 'cr63f_acquisitionsublevel', 'table': table}
 
     def get_solutions(self) -> List[Dict[str, Any]]:
         """Fetch all visible solutions from the environment."""
@@ -353,7 +741,8 @@ class DataverseClient:
         if solution_id:
             if len(solution_id) != 36 or '-' not in solution_id:
                 try:
-                    sol_url = f"solutions?$select=solutionid,uniquename&$filter=uniquename eq '{solution_id}' or friendlyname eq '{solution_id}'"
+                    sol_literal = "'" + str(solution_id).replace("'", "''") + "'"
+                    sol_url = f"solutions?$select=solutionid,uniquename&$filter=uniquename eq {sol_literal} or friendlyname eq {sol_literal}"
                     sols = self.get(sol_url).get('value', [])
                     if sols:
                         resolved_sol_id = sols[0].get('solutionid')
@@ -414,11 +803,11 @@ class DataverseClient:
 
         out: Dict[str, List[Dict[str, Any]]] = {}
         try:
-            url = f"EntityDefinitions(LogicalName='{clean}')/Attributes/Microsoft.Dynamics.CRM.PicklistAttributeMetadata?$select=LogicalName&$expand=OptionSet($select=Options)"
+            url = f"EntityDefinitions(LogicalName='{clean}')/Attributes/Microsoft.Dynamics.CRM.PicklistAttributeMetadata?$select=LogicalName&$expand=OptionSet($select=Options,IsGlobal),GlobalOptionSet($select=Options)"
             data = self.get(url)
             for item in data.get('value', []):
                 attr_log = item.get('LogicalName')
-                options_raw = (item.get('OptionSet') or {}).get('Options') or []
+                options_raw = (item.get('OptionSet') or {}).get('Options') or (item.get('GlobalOptionSet') or {}).get('Options') or []
                 opt_list = []
                 for o in options_raw:
                     val = o.get('Value')
@@ -433,7 +822,7 @@ class DataverseClient:
         return out
 
     # -- High-level Operations -------------------------------------------------
-    def fetch_records(self, logical_name: str, max_records: Optional[int] = None, custom_only: bool = False) -> List[Dict[str, Any]]:
+    def fetch_records(self, logical_name: str, max_records: Optional[int] = None, custom_only: bool = False, filter_query: Optional[str] = None) -> List[Dict[str, Any]]:
         """Fetch all records from a Dataverse table and format into clean dictionaries."""
         info = self.get_entity_info(logical_name)
         attrs = self.get_entity_attributes(logical_name)
@@ -471,6 +860,12 @@ class DataverseClient:
             attrs = filtered_attrs if filtered_attrs else attrs
 
         url = f"{self.api_root}{entity_set}"
+        if filter_query:
+            sep = '&' if '?' in url else '?'
+            # Encode the filter so values containing &, #, + or % (e.g. titles
+            # like 'T-1 & T-2') cannot end or alter the query string.
+            encoded_filter = quote(filter_query, safe="'(),=")
+            url = f"{url}{sep}$filter={encoded_filter}"
 
         all_records: List[Dict[str, Any]] = []
         headers = self._headers(with_formatting=True)
@@ -479,7 +874,7 @@ class DataverseClient:
         while url:
             if not url.startswith('http'):
                 url = f"{self.api_root}{url.lstrip('/')}"
-            resp = self._session.get(url, headers=headers, timeout=_TIMEOUT)
+            resp = self._send('get', url, headers=headers, timeout=_TIMEOUT)
             if not resp.ok:
                 raise RuntimeError(f"Dataverse GET {url} failed ({resp.status_code}): {resp.text}")
             data = resp.json()
@@ -490,6 +885,20 @@ class DataverseClient:
                     '__id': rec_id,
                     '__etag': row.get('@odata.etag', ''),
                 }
+                # createdon is replaced below by its display text (minute
+                # precision, month-first). Keep the raw ISO UTC value so audit
+                # history can be ordered exactly.
+                if row.get('createdon'):
+                    rec['__createdon_raw'] = row['createdon']
+                # Lookup columns (Created By, Modified By, Owner) come back as
+                # _createdby_value plus a FormattedValue annotation holding the
+                # name. Keep the name under the column's own name ('createdby')
+                # so the Overview and the weekly report can show who saved.
+                if not custom_only:
+                    for k, v in row.items():
+                        m = re.fullmatch(r'_(\w+)_value@OData\.Community\.Display\.V1\.FormattedValue', k)
+                        if m and v:
+                            rec[m.group(1)] = v
                 # Store all row attributes
                 for k, v in row.items():
                     if not k.startswith('@') and '@' not in k:
@@ -517,76 +926,192 @@ class DataverseClient:
 
         return all_records
 
-    def save_loa_record(self, record_data: Dict[str, Any], record_id: Optional[str] = None) -> Dict[str, Any]:
-        """Create or update a record in cr63f_loamonitoring."""
-        table_name = self.config.get('loa_table', 'cr63f_loamonitoring')
+    def get_record(self, table_name: str, record_id: str) -> Dict[str, Any]:
+        """Read a single current record and retain the version for conditional writes."""
+        info = self.get_entity_info(table_name)
+        clean_id = str(record_id).strip("{}'\"")
+        row = self.get(f"{info['entity_set']}({clean_id})")
+        rec = {k: v for k, v in row.items() if '@' not in k}
+        rec['__id'] = row.get(info['primary_id']) or clean_id
+        rec['__etag'] = row.get('@odata.etag', '')
+        # Choice labels are required by the app's comparisons and save mapper.
+        # Keep numeric/date logical values raw so rollback retains full precision.
+        for key, meta in self.get_entity_attributes(table_name).items():
+            formatted = row.get(f'{key}@OData.Community.Display.V1.FormattedValue')
+            if formatted is not None:
+                rec[meta['display']] = formatted
+                if meta['type'] in ('Picklist', 'State', 'Status'):
+                    rec[key] = formatted
+        return rec
+
+    def save_record(self, table_name: str, record_data: Dict[str, Any], record_id: Optional[str] = None,
+                    expected_etag: Optional[str] = None, strict: bool = True) -> Dict[str, Any]:
+        """Create or update a record in any Dataverse table with automatic field mapping & casting.
+
+        strict=True: a number, whole number or date that cannot be read raises
+        ValueError instead of being saved as blank. The audit table uses
+        strict=False, because a snapshot may carry display text in a typed column.
+        """
         info = self.get_entity_info(table_name)
         attrs = self.get_entity_attributes(table_name)
 
         # Build payload mapping display names / logical names to valid Dataverse attributes
         payload: Dict[str, Any] = {}
         for k, v in record_data.items():
-            if k.startswith('__'):
+            if k.startswith('__') or k.startswith('@'):
                 continue
             # find matching logical attribute
             target_attr = None
             if k in attrs and (attrs[k]['can_create'] or attrs[k]['can_update']):
                 target_attr = attrs[k]
             else:
+                k_norm = _norm(k)
                 for log_name, meta in attrs.items():
-                    if _norm(meta['display']) == _norm(k) or _norm(log_name) == _norm(k):
+                    if _norm(meta['display']) == k_norm or _norm(log_name) == k_norm:
                         if meta['can_create'] or meta['can_update']:
                             target_attr = meta
                             break
+
+                # Prefix-stripped clean match (e.g. new_contracttype vs cr63f_contracttype vs Contract Type)
+                if not target_attr:
+                    k_clean = _clean_key(k)
+                    if k_clean:
+                        for log_name, meta in attrs.items():
+                            log_clean = _clean_key(log_name)
+                            disp_clean = _clean_key(meta['display'])
+                            if (log_clean == k_clean or disp_clean == k_clean or
+                                log_clean.rstrip('1234567890') == k_clean.rstrip('1234567890') or
+                                disp_clean.rstrip('1234567890') == k_clean.rstrip('1234567890')):
+                                if meta['can_create'] or meta['can_update']:
+                                    target_attr = meta
+                                    break
 
             if target_attr:
                 log_name = target_attr['logical']
                 attr_type = target_attr['type']
                 # Cast based on type
                 if v == '' or v is None:
-                    payload[log_name] = None
-                elif attr_type in ('Integer', 'BigInt'):
-                    try:
-                        payload[log_name] = int(float(str(v).replace(',', '').strip()))
-                    except Exception:
+                    if log_name not in payload:
                         payload[log_name] = None
-                elif attr_type in ('Decimal', 'Double', 'Money'):
-                    try:
-                        payload[log_name] = float(str(v).replace(',', '').replace('₱', '').replace('$', '').strip())
-                    except Exception:
+                elif str(v).strip().lower() in _BLANK_TEXT and attr_type in ('Integer', 'BigInt', 'Decimal', 'Double', 'Money', 'DateTime'):
+                    # An explicit placeholder ('-', 'None') means blank.
+                    if log_name not in payload:
                         payload[log_name] = None
+                elif attr_type in ('Integer', 'BigInt', 'Decimal', 'Double', 'Money'):
+                    number = _parse_number_strict(v)
+                    if number is None:
+                        if strict:
+                            raise ValueError(f"'{v}' is not a valid number for {target_attr['display']}.")
+                        if log_name not in payload:
+                            payload[log_name] = None
+                    else:
+                        payload[log_name] = int(round(number)) if attr_type in ('Integer', 'BigInt') else number
                 elif attr_type in ('Picklist', 'State', 'Status'):
                     try:
                         payload[log_name] = int(str(v).strip())
                     except Exception:
                         # If passed a label, look up choice integer value
                         opts = self.get_picklist_options(table_name).get(log_name, [])
-                        matched_opt = next((o['value'] for o in opts if _norm(o['label']) == _norm(v)), None)
-                        payload[log_name] = matched_opt if matched_opt is not None else None
-                elif attr_type == 'DateTime':
-                    v_str = str(v).strip()
-                    if not v_str:
-                        payload[log_name] = None
-                    else:
-                        parts = re.split(r'[-/]', v_str.split('T')[0].split(' ')[0])
-                        if len(parts) == 3:
-                            if len(parts[0]) == 4:  # YYYY-MM-DD
-                                payload[log_name] = f"{parts[0]}-{int(parts[1]):02d}-{int(parts[2]):02d}"
-                            else:  # MM/DD/YYYY
-                                payload[log_name] = f"{parts[2]}-{int(parts[0]):02d}-{int(parts[1]):02d}"
+                        v_norm = _norm(v)
+                        v_clean = _clean_key(v)
+                        # Exact label first; a partial match is used only when it is
+                        # unique, so 'LEASE' can never resolve to 'SUBLEASE'.
+                        matched_opt = next((o['value'] for o in opts if _norm(o['label']) == v_norm), None)
+                        if matched_opt is None:
+                            matched_opt = next((o['value'] for o in opts if _clean_key(o['label']) == v_clean), None)
+                        if matched_opt is None and v_norm:
+                            partial = [o['value'] for o in opts if v_norm in _norm(o['label'])]
+                            matched_opt = partial[0] if len(partial) == 1 else None
+                        if matched_opt is not None:
+                            payload[log_name] = matched_opt
                         else:
-                            payload[log_name] = v_str
+                            # An unmatched label must not be dropped silently: the
+                            # caller would be told the save succeeded without it.
+                            raise ValueError(f"'{v}' is not a valid choice for {log_name}")
+                elif attr_type == 'DateTime':
+                    clean_dt = _clean_dataverse_datetime(v, self.get_datetime_behaviors(table_name).get(log_name, 'UserLocal'))
+                    if clean_dt is not None:
+                        payload[log_name] = clean_dt
+                    else:
+                        text = str(v).strip()
+                        # 0001-01-01 style placeholders are blanks on purpose.
+                        if strict and not re.search(r'(^|\D)0{3}[01](\D|$)', text):
+                            raise ValueError(f"'{v}' is not a valid date for {target_attr['display']} (use MM/DD/YYYY).")
+                        if log_name not in payload:
+                            payload[log_name] = None
                 elif attr_type == 'Boolean':
                     payload[log_name] = bool(v) if str(v).lower() not in ('false', '0', 'no', '') else False
                 else:
                     payload[log_name] = str(v).strip()
 
+        # Primary name attribute safeguard on create
+        primary_name = info.get('primary_name')
+        if not record_id and primary_name and (primary_name not in payload or not payload[primary_name]):
+            def_name = (
+                payload.get('cr63f_areaindex') or record_data.get('area_index') or record_data.get('AREA-INDEX') or
+                record_data.get('cr63f_control1') or record_data.get('Control') or
+                record_data.get('field_name') or record_data.get('details') or 'LOA Entry'
+            )
+            payload[primary_name] = str(def_name).strip()
+
         if record_id:
-            # Update
-            self.patch(info['entity_set'], record_id, payload)
-            return {'success': True, 'action': 'update', 'id': record_id}
+            # Update. The new version tag lets the next save of this record be
+            # conditional too (see DataverseClient.patch_with_version).
+            _, new_etag = self.patch_with_version(
+                info['entity_set'], record_id, payload, expected_etag=expected_etag,
+                select_attr=info.get('primary_id'))
+            return {'success': True, 'action': 'update', 'id': record_id, 'etag': new_etag}
         else:
             # Create
             status, created_id, _ = self.post(info['entity_set'], payload)
             return {'success': True, 'action': 'create', 'id': created_id}
+
+    def save_loa_record(self, record_data: Dict[str, Any], record_id: Optional[str] = None, expected_etag: Optional[str] = None) -> Dict[str, Any]:
+        """Create or update a record in cr63f_loamonitoring."""
+        table_name = self.config.get('loa_table', 'cr63f_loamonitoring')
+        if expected_etag:
+            return self.save_record(table_name, record_data, record_id, expected_etag=expected_etag)
+        return self.save_record(table_name, record_data, record_id)
+
+    def save_log_record(self, record_data: Dict[str, Any], record_id: Optional[str] = None) -> Dict[str, Any]:
+        """Create or update a record in cr63f_loamonitoringlogs (entry logs repository)."""
+        table_name = self.config.get('logs_table', 'cr63f_loamonitoringlogs')
+        return self.save_record(table_name, record_data, record_id, strict=False)
+
+    def save_finance_record(self, record_data: Dict[str, Any], record_id: Optional[str] = None) -> Dict[str, Any]:
+        """Create or update a record in cr63f_financereference."""
+        table_name = self.config.get('finance_table', 'cr63f_financereference')
+        return self.save_record(table_name, record_data, record_id)
+
+    def save_conversion_record(self, record_data: Dict[str, Any], record_id: Optional[str] = None) -> Dict[str, Any]:
+        """Create or update a record in cr63f_landconversionreference."""
+        table_name = self.config.get('conversion_table', 'cr63f_landconversionreference')
+        return self.save_record(table_name, record_data, record_id)
+
+    def delete_log_record(self, record_id: str) -> Dict[str, Any]:
+        """Delete a record from cr63f_loamonitoringlogs."""
+        target_str = str(record_id or '').strip()
+        guid_match = re.search(r'[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}', target_str)
+        if not guid_match:
+            return {'success': True, 'action': 'skipped', 'id': target_str, 'message': 'Non-GUID log ID skipped in Dataverse'}
+        clean_guid = guid_match.group(0)
+        table_name = self.config.get('logs_table', 'cr63f_loamonitoringlogs')
+        info = self.get_entity_info(table_name)
+        self.delete(info['entity_set'], clean_guid)
+        return {'success': True, 'action': 'delete', 'id': clean_guid}
+
+    def delete_loa_record(self, record_id: str) -> Dict[str, Any]:
+        """Delete a record from cr63f_loamonitoring (used to undo a create whose audit row failed)."""
+        table_name = self.config.get('loa_table', 'cr63f_loamonitoring')
+        info = self.get_entity_info(table_name)
+        self.delete(info['entity_set'], record_id)
+        return {'success': True, 'action': 'delete', 'id': record_id}
+
+    def delete_conversion_record(self, record_id: str) -> Dict[str, Any]:
+        """Delete a record from cr63f_landconversionreference."""
+        table_name = self.config.get('conversion_table', 'cr63f_landconversionreference')
+        info = self.get_entity_info(table_name)
+        self.delete(info['entity_set'], record_id)
+        return {'success': True, 'action': 'delete', 'id': record_id}
+
 

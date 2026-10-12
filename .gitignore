@@ -29,3 +29,21 @@ scratch/
 Thumbs.db
 .vscode/
 .idea/
+
+
+# WebView2 browser profile/cache created when running from source
+web_profile/
+
+# Unused empty database file (the app keeps no local database)
+loa_system.db
+
+# Clean build environment created by build.ps1
+.build-venv/
+
+# Velopack releases folder
+Releases/
+
+# Import checkpoints
+scripts/imported_controls.txt
+scripts/import_checkpoint.json
+
