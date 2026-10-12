@@ -1,0 +1,130 @@
+import time
+import unittest
+import sys
+from types import SimpleNamespace
+from unittest import mock
+
+from updater import UpdateService, UPDATE_FEED_URL
+
+
+class _Asset:
+    Version = "1.1.0"
+    NotesMarkdown = "Fixed land master calculations."
+
+
+class _Info:
+    TargetFullRelease = _Asset()
+
+
+class _Manager:
+    def __init__(self, available=True):
+        self.available = available
+        self.downloaded = False
+
+    def check_for_updates(self):
+        return _Info() if self.available else None
+
+    def download_updates(self, info, callback):
+        self.downloaded = True
+        callback(25)
+        callback(100)
+
+
+def _wait_for(service, status, timeout=2):
+    end = time.monotonic() + timeout
+    while time.monotonic() < end:
+        state = service.state()
+        if state["status"] == status:
+            return state
+        time.sleep(0.01)
+    raise AssertionError(f"Updater did not reach {status!r}: {service.state()}")
+
+
+class UpdateServiceTests(unittest.TestCase):
+    def make_service(self, manager, current_version="1.0.7"):
+        events = []
+        service = UpdateService(current_version, events.append)
+        service._state["configured"] = True
+        service._manager = manager
+        return service, events
+
+    def test_check_finds_release_and_downloads(self):
+        service, events = self.make_service(_Manager())
+        service.check(True)
+        state = _wait_for(service, "available")
+        self.assertEqual(state["latestVersion"], "1.1.0")
+        self.assertIn("land master calculations", state["releaseNotes"])
+
+        service.download()
+        state = _wait_for(service, "ready")
+        self.assertEqual(state["progress"], 100)
+        self.assertTrue(events)
+
+    def test_check_reports_latest_version(self):
+        service, _ = self.make_service(_Manager(available=False))
+        service.check(True)
+        state = _wait_for(service, "up_to_date")
+        self.assertIn("latest", state["message"])
+
+    def test_check_reports_latest_version_when_equal(self):
+        service, _ = self.make_service(_Manager(available=True), current_version="1.1.0")
+        service.check(True)
+        state = _wait_for(service, "up_to_date")
+        self.assertIn("latest", state["message"])
+
+    def test_apply_uses_sdk_apply_and_restart_lifecycle(self):
+        service, _ = self.make_service(_Manager())
+        service._update_info = object()
+        service._state["status"] = "ready"
+        calls = []
+        service._manager.apply_updates_and_restart = lambda info: calls.append(info)
+
+        state = service.apply_and_restart()
+
+        self.assertEqual(calls, [service._update_info])
+        self.assertEqual(state["status"], "installing")
+
+    def test_unmanaged_build_is_disabled_not_an_error(self):
+        # Running from source or the PyInstaller dist folder is not an install,
+        # so Velopack raises here. That is expected, not a failure to report.
+        class Manager:
+            def __init__(self, source):
+                raise RuntimeError("This application is not properly installed")
+
+        fake_module = SimpleNamespace(UpdateManager=Manager, HttpSource=lambda url: url)
+        with mock.patch.dict(sys.modules, {"velopack": fake_module}):
+            service = UpdateService("1.0.7", lambda _state: None)
+
+        self.assertFalse(service.state()["active"])
+        self.assertEqual(service.state()["currentVersion"], "1.0.7")
+        state = service.check(True)
+        self.assertEqual(state["status"], "disabled")
+        self.assertNotIn("not properly installed", state["message"])
+
+    def test_http_feed_is_wrapped_in_http_source(self):
+        feed = "https://github.com/jmlinguito-ux/loamonitoring/releases/latest/download/"
+        seen = []
+
+        class Source:
+            def __init__(self, url):
+                self.url = url
+
+        class Manager:
+            def __init__(self, source):
+                seen.append(source)
+
+            def get_current_version(self):
+                return "1.0.7"
+
+        fake_module = SimpleNamespace(UpdateManager=Manager, HttpSource=Source)
+        with mock.patch.dict(sys.modules, {"velopack": fake_module}):
+            service = UpdateService("1.0.7", lambda _state: None, feed_url=feed)
+
+        self.assertEqual(len(seen), 1)
+        self.assertIsInstance(seen[0], Source)
+        self.assertEqual(seen[0].url, feed)
+        self.assertEqual(service.state()["currentVersion"], "1.0.7")
+
+
+if __name__ == "__main__":
+    unittest.main()

@@ -3,70 +3,63 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>LOA Monitoring Tool</title>
+  <title></title>
   <link rel="icon" type="image/png" href="app-icon.png" />
   <link rel="shortcut icon" href="icon.ico" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="style.css?v=20261006c" />
 </head>
 <body>
+  <a class="skip-link" href="#mainContent">Skip to content</a>
   <div class="app">
 
-    <!-- ============ TOP BAR ============ -->
-    <header class="topbar">
-      <div class="tb-left">
-        <img src="app-icon.png" class="tb-logo" alt="LOA Logo" />
-        <span class="tb-title">LOA Monitoring Tool</span>
-        <span class="tb-divider"></span>
-        <span class="tb-eyebrow">Desktop app developed by JMI</span>
+    <!-- ============ SIDEBAR NAVIGATION ============ -->
+    <nav class="nav-strip" aria-label="Main navigation">
+      <div class="nav-brand">
+        <img src="app-icon.png" class="tb-logo" alt="" width="28" height="28" />
+        <span class="tb-title">LOA Monitor</span>
       </div>
-
-      <div class="tb-right">
-        <!-- Finance Reference Pill -->
-        <button class="pill-btn" id="btnTopFinancePill" title="Finance Data status">
-          <span class="pill-dot" id="dotFinanceRef"></span>
-          <span id="lblTopFinance">Finance Data: None</span>
-        </button>
-
-        <!-- Dataverse Connection Pill -->
-        <button class="pill-btn" id="btnTopConnPill" title="Dataverse connection">
-          <span class="pill-dot" id="dotTopConn"></span>
-          <span id="lblTopConn">Not connected</span>
-        </button>
-      </div>
-    </header>
-
-    <!-- ============ NAVIGATION STRIP ============ -->
-    <nav class="nav-strip">
       <div class="tabs-group">
-        <button class="tab-btn active" data-view="records">
-          <span>LOA Records Hub</span>
-        </button>
-        <button class="tab-btn" data-view="finance">
-          <span>Finance Data</span>
-        </button>
-        <button class="tab-btn" data-view="settings">
-          <span>Settings &amp; Connection</span>
-        </button>
+        <div class="nav-cluster">
+          <button type="button" class="tab-btn active" data-view="dashboard" aria-controls="view-dashboard" aria-current="page"><svg class="tab-ico" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="9" rx="1.5"></rect><rect x="14" y="3" width="7" height="5" rx="1.5"></rect><rect x="14" y="12" width="7" height="9" rx="1.5"></rect><rect x="3" y="16" width="7" height="5" rx="1.5"></rect></svg><span>Overview</span></button>
+          <button type="button" class="tab-btn" data-view="records" aria-controls="view-records"><svg class="tab-ico" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"></rect><line x1="3" y1="10" x2="21" y2="10"></line><line x1="9" y1="10" x2="9" y2="20"></line></svg><span>Land Master</span></button>
+          <button type="button" class="tab-btn" data-view="logs" aria-controls="view-logs"><svg class="tab-ico" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><polyline points="12 7 12 12 15 14"></polyline></svg><span>Entry Logs</span></button>
+        </div>
+        <div class="nav-cluster nav-cluster-reference">
+          <span class="nav-cluster-label">Reference data</span>
+          <button type="button" class="tab-btn" data-view="finance" aria-controls="view-finance"><svg class="tab-ico" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="6" width="20" height="13" rx="2"></rect><line x1="2" y1="11" x2="22" y2="11"></line></svg><span>Finance</span></button>
+          <button type="button" class="tab-btn" data-view="conversion" aria-controls="view-conversion"><svg class="tab-ico" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="2 6 9 3 15 6 22 3 22 18 15 21 9 18 2 21 2 6"></polygon><line x1="9" y1="3" x2="9" y2="18"></line><line x1="15" y1="6" x2="15" y2="21"></line></svg><span>Conversion</span></button>
+        </div>
+        <div class="nav-cluster nav-cluster-settings">
+          <button type="button" class="tab-btn" data-view="settings" aria-controls="view-settings"><svg class="tab-ico" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-2.9 1.2V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-2.9-1.2l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1A1.7 1.7 0 0 0 3 15H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.2-2.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 2.9-1.2V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 2.9 1.2l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0 1.2 2.9H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"></path></svg><span>Settings</span></button>
+        </div>
       </div>
 
       <div class="nav-actions">
-        <button class="btn primary" id="btnOpenNewEntry" onclick="window.openNewEntry && window.openNewEntry()">
-          + New Entry / Log
-        </button>
-        <button class="btn" id="btnTopSyncDv">
-          Sync Dataverse
-        </button>
+        <button type="button" class="btn primary" id="btnOpenNewEntry">+ New entry</button>
+        <button type="button" class="btn" id="btnTopSyncDv">Sync Land Master</button>
+        <div class="data-status" role="group" aria-label="Data status">
+          <button type="button" class="pill-btn" id="btnTopConnPill" title="Dataverse connection — open Settings">
+            <span class="pill-dot" id="dotTopConn"></span><span class="pill-name">Dataverse</span><span class="pill-val" id="lblTopConn">Not connected</span>
+          </button>
+          <button type="button" class="pill-btn" id="btnTopFinancePill" title="Finance reference data — open Finance">
+            <span class="pill-dot" id="dotFinanceRef"></span><span class="pill-name">Finance</span><span class="pill-val" id="lblTopFinance">None</span>
+          </button>
+          <button type="button" class="pill-btn" id="btnTopConversionPill" title="Conversion reference data — open Conversion">
+            <span class="pill-dot" id="dotConversionRef"></span><span class="pill-name">Conversion</span><span class="pill-val" id="lblTopConversion">None</span>
+          </button>
+        </div>
       </div>
     </nav>
 
     <!-- ============ MAIN CONTENT AREA ============ -->
-    <main class="content-area">
+    <main class="content-area" id="mainContent" tabindex="-1">
 
       <!-- ==================== VIEW 1: RECORDS HUB ==================== -->
-      <section class="view-panel active" id="view-records">
+      <section class="view-panel" id="view-records">
+        <div class="page-heading"><div><p class="page-kicker">Land records</p><h1>Land Master</h1><p>Review accounts, stage edits, and apply reference updates.</p></div></div>
         <!-- KPI Row -->
         <div class="kpi-row">
           <div class="kpi-card">
@@ -89,23 +82,20 @@
 
         <!-- Filter & Table Panel -->
         <div class="panel">
-          <div class="panel-head" style="flex-wrap: wrap; gap: 10px;">
-            <div style="display: flex; align-items: center; gap: 8px; flex: 1; min-width: 320px;">
-              <input type="text" id="searchInput" class="input" placeholder="Search across all fields..." style="max-width: 320px; width: 100%;" />
-              <select id="typeFilter" class="select" style="width: 150px;">
+          <div class="panel-head data-toolbar ledger-toolbar">
+            <div class="toolbar-filters" role="search" aria-label="Filter Land Master records">
+              <input type="search" id="searchInput" name="land-master-search" autocomplete="off" aria-label="Search Land Master records" class="input toolbar-search" placeholder="Search records…" />
+              <select id="typeFilter" class="select toolbar-select-sm toolbar-filter-first" aria-label="Filter Land Master by type">
                 <option value="ALL">All Types</option>
               </select>
-              <button class="btn xs ghost" id="btnClearFilters" title="Clear all filters & search">Clear Filters</button>
+              <select id="modeFilterPanel" class="select toolbar-select-md toolbar-filter-second" aria-label="Filter Land Master by mode" title="Filter records by Mode">
+                <option value="ALL">All Modes</option>
+              </select>
+              <button class="btn xs ghost toolbar-clear" id="btnClearFilters" title="Clear all filters & search">Clear Filters</button>
             </div>
 
-            <!-- Staged Changes Toolbar (GDPT-style) -->
-            <div id="stagedEditsWrap" class="staged-edits-bar hidden">
-              <span id="unsavedEditsChip" class="dirty-chip">0 unsaved edits</span>
-              <button class="btn xs primary" id="btnSaveStagedEdits">Save to Dataverse</button>
-              <button class="btn xs ghost" id="btnDiscardStagedEdits">Discard</button>
-            </div>
-
-            <div style="display: flex; align-items: center; gap: 8px;">
+            <div class="toolbar-meta">
+              <span class="toolbar-count mono-input" id="lblGridCount">0 records</span>
               <!-- Columns visibility picker -->
               <div class="col-picker-container">
                 <button class="btn xs ghost" id="btnColumnsPicker" title="Customize visible columns">Columns ▾</button>
@@ -113,18 +103,24 @@
                   <!-- Populated by app.js -->
                 </div>
               </div>
+            </div>
 
-              <span class="mono-input" id="lblGridCount" style="color: var(--ink3); font-size: 12px;">0 records</span>
+            <div class="toolbar-actions">
               <button class="btn" id="btnExportExcel">Export Excel</button>
+              <button class="btn accent-btn" id="btnUpdateFromFinance" title="Look up & auto-populate latest financial figures and Conversion Status from active Reference Data">Update from References</button>
+            </div>
+
+            <!-- Staged changes retain a dedicated row when edits are pending. -->
+            <div id="stagedEditsWrap" class="staged-edits-bar hidden">
+              <span id="unsavedEditsChip" class="dirty-chip">0 unsaved edits</span>
+              <button class="btn xs ghost" id="btnToggleShowOnlyChanged" title="Toggle between viewing only changed rows vs all rows">Show Changed Only</button>
+              <button class="btn xs primary" id="btnSaveStagedEdits">Save to Dataverse</button>
+              <button class="btn xs ghost" id="btnDiscardStagedEdits">Discard</button>
             </div>
           </div>
 
           <div class="table-wrap">
-            <div class="empty-state" id="tableEmptyState">
-              <p style="font-size: 14px; font-weight: 500; color: var(--ink);">No LOA records loaded</p>
-              <p style="font-size: 12.5px;">Click <strong>Sync Dataverse</strong> above or add a <strong>New Entry / Log</strong>.</p>
-            </div>
-            <table class="table-grid hidden" id="recordsTable">
+            <table class="table-grid" id="recordsTable">
               <thead id="recordsTableHead"></thead>
               <tbody id="recordsTableBody"></tbody>
             </table>
@@ -132,19 +128,215 @@
         </div>
       </section>
 
-      <!-- ==================== VIEW 2: FINANCE DATA ==================== -->
-      <section class="view-panel" id="view-finance">
+      <!-- ==================== VIEW 2: ENTRY LOGS ==================== -->
+      <section class="view-panel" id="view-logs">
+        <div class="page-heading"><div><p class="page-kicker">Audit history</p><h1>Entry Logs</h1><p>Trace new entries and field changes from Dataverse.</p></div></div>
+        <!-- KPI Row for Logs -->
+        <div class="kpi-row">
+          <div class="kpi-card">
+            <span class="kpi-label">Total Logged Events</span>
+            <span class="kpi-value" id="kpiLogsCount">0</span>
+          </div>
+          <div class="kpi-card">
+            <span class="kpi-label">New Entries Logged</span>
+            <span class="kpi-value" id="kpiLogsNewEntry">0</span>
+          </div>
+          <div class="kpi-card">
+            <span class="kpi-label">Manual Edits Logged</span>
+            <span class="kpi-value" id="kpiLogsManual">0</span>
+          </div>
+          <div class="kpi-card highlight">
+            <span class="kpi-label">Reference Updates Logged</span>
+            <span class="kpi-value" id="kpiLogsFinance">0</span>
+          </div>
+        </div>
+
         <div class="panel">
-          <div class="panel-head" style="flex-wrap: wrap; gap: 10px;">
-            <div style="display: flex; align-items: center; gap: 8px; flex: 1; min-width: 320px;">
-              <input type="text" id="searchInputFinance" class="input" placeholder="Search across all finance fields..." style="max-width: 300px; width: 100%;" />
-              <select id="typeFilterFinance" class="select" style="width: 150px;">
+          <div class="panel-head data-toolbar ledger-toolbar">
+            <div class="toolbar-filters" role="search" aria-label="Filter Entry Logs">
+              <input type="search" id="searchInputLogs" name="entry-log-search" autocomplete="off" aria-label="Search Entry Logs" class="input toolbar-search" placeholder="Search logs…" />
+              <select id="actionFilterLogs" class="select toolbar-select-md toolbar-filter-first" aria-label="Filter logs by action type" title="Filter by Action Type">
+                <option value="ALL">All Actions</option>
+                <option value="NEW_ENTRY">New Entry</option>
+                <option value="MANUAL_EDIT">Manual Edit</option>
+                <option value="REFERENCE_UPDATE">Reference Update</option>
+                <option value="REVERT">Revert</option>
+                <option value="DELETE">Deleted</option>
+              </select>
+              <select id="wwFilterLogs" class="select toolbar-select-md toolbar-filter-second" aria-label="Filter logs by work week" title="Filter by Work Week">
+                <option value="ALL">All Work Weeks</option>
+              </select>
+              <button class="btn xs ghost toolbar-clear" id="btnClearFiltersLogs" title="Clear all filters & search">Clear Filters</button>
+            </div>
+
+            <div class="toolbar-meta">
+              <span class="toolbar-count mono-input" id="lblLogsGridCount">0 logs</span>
+              <!-- Columns visibility picker -->
+              <div class="col-picker-container">
+                <button class="btn xs ghost" id="btnColumnsPickerLogs" title="Customize visible columns">Columns ▾</button>
+                <div class="col-picker-menu hidden" id="colPickerMenuLogs">
+                  <!-- Populated by app.js -->
+                </div>
+              </div>
+            </div>
+
+            <div class="toolbar-actions">
+              <button class="btn" id="btnExportExcelLogs">Export Excel</button>
+              <button class="btn ghost" id="btnRefreshLogs" title="Refresh entry logs from Dataverse">Refresh Logs</button>
+            </div>
+          </div>
+
+          <div class="table-wrap">
+            <table class="table-grid" id="logsTable" tabindex="0" aria-label="Entry Logs. Select cells and press Control+C to copy.">
+              <thead id="logsTableHead"></thead>
+              <tbody id="logsTableBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==================== VIEW 3: OVERVIEW (weekly change monitor) ==================== -->
+      <section class="view-panel active" id="view-dashboard">
+        <div class="ov-head">
+          <div>
+            <h1 class="ov-title">Overview</h1>
+            <p class="ov-sub">What changed this work week, and where the portfolio stands.</p>
+          </div>
+          <div class="ov-ctrls">
+            <div class="ov-week" role="group" aria-label="Work week">
+              <button type="button" class="ov-week-step" id="btnDashPrevWeek" aria-label="Previous work week">&#8249;</button>
+              <label class="ov-week-label">
+                <span class="sr-only">Work week</span>
+                <select id="dashWorkWeekSelect" class="ov-week-select"></select>
+                <span class="ov-week-range" id="dashWeekRange"></span>
+              </label>
+              <button type="button" class="ov-week-step" id="btnDashNextWeek" aria-label="Next work week">&#8250;</button>
+            </div>
+            <span class="ov-synced" id="dashSyncedLabel"></span>
+            <button type="button" class="btn" id="btnRefreshDashboard" title="Reload Land Master, references and Entry Logs from Dataverse">
+              <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.5 15a9 9 0 1 1-2.1-9.4L23 10"></path></svg>
+              <span>Sync</span>
+            </button>
+            <button type="button" class="btn" id="btnDashWeeklyReport" title="Export this week's summary to Excel">
+              <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+              <span>Weekly report</span>
+            </button>
+          </div>
+        </div>
+
+        <div id="dashModeFilterBanner" class="ov-filter hidden" role="status">
+          <span id="dashModeFilterText"></span>
+          <button type="button" class="btn xs ghost" id="btnDashClearMode">Clear filter</button>
+        </div>
+
+        <section class="ov-sect" aria-labelledby="ovThisWeek">
+          <div class="ov-secthd"><h2 id="ovThisWeek">This week</h2><span id="dashCompareLabel"></span></div>
+          <div class="ov-kpis">
+            <div class="ov-kpi focus">
+              <span class="ov-kpi-l">Accounts changed</span>
+              <span class="ov-kpi-v" id="dashKpiWeeklyChanges">0</span>
+              <span class="ov-kpi-d" id="dashKpiWeeklyChangesSubtitle">No changes yet</span>
+            </div>
+            <div class="ov-kpi">
+              <span class="ov-kpi-l">Payments deducted</span>
+              <span class="ov-kpi-v" id="dashKpiTotalDeductible">₱0</span>
+              <span class="ov-kpi-d" id="dashKpiDeductibleDelta"></span>
+            </div>
+            <div class="ov-kpi">
+              <span class="ov-kpi-l">Balance outstanding</span>
+              <span class="ov-kpi-v" id="dashKpiTotalBalance">₱0</span>
+              <span class="ov-kpi-d" id="dashKpiBalanceDelta"></span>
+            </div>
+            <div class="ov-kpi">
+              <span class="ov-kpi-l">DAR secured</span>
+              <span class="ov-kpi-v"><span id="dashKpiSecured">0</span> <small>lots</small></span>
+              <span class="ov-kpi-d" id="dashKpiSecuredDelta"></span>
+            </div>
+          </div>
+
+          <div class="ov-two">
+            <div class="ov-card">
+              <div class="ov-cardhd">
+                <h3>Changed accounts</h3>
+                <div class="ov-tools">
+                  <label class="ov-search">
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><line x1="21" y1="21" x2="16" y2="16"></line></svg>
+                    <input type="search" id="dashActivitySearchInput" name="weekly-change-search" autocomplete="off" aria-label="Search changed accounts" placeholder="Search account or field" />
+                  </label>
+                  <div class="ov-seg" id="dashSourceFilter" role="group" aria-label="Filter by source"></div>
+                </div>
+              </div>
+              <div class="ov-scroll">
+                <table class="ov-table" id="dashAuditTable">
+                  <thead><tr><th class="ov-col-caret"><span class="sr-only">Expand</span></th><th>Account</th><th>What changed</th><th>Source</th><th>When</th><th>By</th></tr></thead>
+                  <tbody id="dashAuditTableBody"></tbody>
+                </table>
+              </div>
+              <div class="ov-tfoot">
+                <span id="dashAuditCountLabel">No changes</span>
+                <div class="dash-audit-pagination" id="dashAuditPagination"></div>
+              </div>
+            </div>
+
+            <div class="ov-card">
+              <div class="ov-cardhd"><h3>Needs attention</h3><span class="ov-chip mut" id="dashAttentionCount">0</span></div>
+              <div class="ov-att" id="dashAttentionList"></div>
+            </div>
+          </div>
+        </section>
+
+        <section class="ov-sect" aria-labelledby="ovPortfolio">
+          <div class="ov-secthd"><h2 id="ovPortfolio">Portfolio</h2><span id="dashPortfolioLabel"></span></div>
+          <div class="ov-port">
+            <div class="ov-card">
+              <div class="ov-cardhd"><h3>Payment progress</h3></div>
+              <div class="ov-pbody">
+                <div class="ov-big"><b id="dashFinancePaidRatio">0%</b><span id="dashFinanceSub"></span></div>
+                <div class="ov-stack" id="dashFinanceStack" role="img"></div>
+                <div class="ov-legend" id="dashFinanceBreakdownContainer"></div>
+                <div class="ov-foot" id="dashFinanceFooterStats"></div>
+              </div>
+            </div>
+            <div class="ov-card">
+              <div class="ov-cardhd"><h3>Conversion progress</h3></div>
+              <div class="ov-pbody">
+                <div class="ov-big"><b id="dashConvSecuredRatio">0%</b><span id="dashConvSub"></span></div>
+                <div class="ov-stack" id="dashConvStack" role="img"></div>
+                <div class="ov-legend" id="dashConvBarsContainer"></div>
+              </div>
+            </div>
+            <div class="ov-card">
+              <div class="ov-cardhd"><h3>Accounts by mode</h3><span class="ov-hint" id="dashModeTotalLots">Click to filter</span></div>
+              <div class="ov-pbody ov-modes" id="dashModeBarsContainer"></div>
+            </div>
+          </div>
+        </section>
+      </section>
+
+      <!-- ==================== VIEW 4: FINANCE DATA ==================== -->
+      <section class="view-panel" id="view-finance">
+        <div class="page-heading"><div><p class="page-kicker">Reference data</p><h1>Finance</h1><p>Maintain figures used by Land Master reference updates.</p></div></div>
+        <div class="panel">
+          <div class="panel-head data-toolbar">
+            <div class="toolbar-filters">
+              <input type="search" id="searchInputFinance" name="finance-search" autocomplete="off" aria-label="Search Finance data" class="input toolbar-search" placeholder="Search finance data…" />
+              <select id="typeFilterFinance" class="select toolbar-select-md" aria-label="Filter Finance by type">
                 <option value="ALL">All Types</option>
               </select>
               <button class="btn xs ghost" id="btnClearFiltersFinance" title="Clear all filters & search">Clear Filters</button>
             </div>
 
-            <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+            <!-- Staged Changes Toolbar for Finance Data -->
+            <div id="stagedEditsWrapFinance" class="staged-edits-bar hidden">
+              <span id="unsavedEditsChipFinance" class="dirty-chip">0 modified rows</span>
+              <button class="btn xs ghost" id="btnToggleShowOnlyChangedFinance" title="Toggle between viewing only changed rows vs all rows">Show Changed Only</button>
+              <button class="btn xs primary" id="btnSaveStagedEditsFinance">Save to Dataverse</button>
+              <button class="btn xs ghost" id="btnDiscardStagedEditsFinance">Discard</button>
+            </div>
+
+            <div class="toolbar-actions">
+              <button class="btn primary" id="btnUploadFinance">Upload Excel / CSV</button>
+              <button class="btn" id="btnSyncFinanceToDv" title="Upload & sync loaded finance rows directly to Dataverse table">Sync to Dataverse</button>
               <!-- Columns visibility picker -->
               <div class="col-picker-container">
                 <button class="btn xs ghost" id="btnColumnsPickerFinance" title="Customize visible columns">Columns ▾</button>
@@ -154,17 +346,13 @@
               </div>
 
               <span class="mono-input" id="lblFinanceGridCount" style="color: var(--ink3); font-size: 12px;">0 rows</span>
+              <button class="btn ghost" id="btnDownloadFinanceTemplate" title="Download standard Excel template for Finance Reference">Download Template</button>
               <button class="btn" id="btnExportExcelFinance">Export Excel</button>
-              <button class="btn primary" id="btnUploadFinance">Upload Excel / CSV</button>
               <button class="btn danger-ghost" id="btnClearFinanceData">Clear</button>
             </div>
           </div>
 
           <div class="table-wrap">
-            <div class="empty-state hidden" id="financeEmptyState">
-              <p style="font-size: 14px; font-weight: 500; color: var(--ink);">No Finance data loaded</p>
-              <p style="font-size: 12.5px;">Click <strong>Upload Excel / CSV</strong> or <strong>Sync Dataverse</strong> above.</p>
-            </div>
             <table class="table-grid" id="financePreviewTable">
               <thead id="financePreviewThead"></thead>
               <tbody id="financePreviewTbody"></tbody>
@@ -173,12 +361,60 @@
         </div>
       </section>
 
+      <!-- ==================== VIEW 5: CONVERSION DATA ==================== -->
+      <section class="view-panel" id="view-conversion">
+        <div class="page-heading"><div><p class="page-kicker">Reference data</p><h1>Conversion</h1><p>Maintain statuses used by Land Master reference updates.</p></div></div>
+        <div class="panel">
+          <div class="panel-head data-toolbar conversion-toolbar">
+            <div class="toolbar-filters">
+              <input type="search" id="searchInputConversion" name="conversion-search" autocomplete="off" aria-label="Search Conversion data" class="input toolbar-search" placeholder="Search conversion data…" />
+              <label class="toolbar-inline-label" for="statusFilterConversion">DAR Status</label>
+              <select id="statusFilterConversion" class="select toolbar-select-md" aria-label="Filter Conversion by DAR Status" title="Filter by DAR Status">
+                <option value="ALL">All DAR Status</option>
+              </select>
+              <button class="btn xs ghost" id="btnClearFiltersConversion" title="Clear all filters & search">Clear Filters</button>
+              <div class="col-picker-container">
+                <button class="btn xs ghost" id="btnColumnsPickerConversion" title="Customize visible columns">Columns ▾</button>
+                <div class="col-picker-menu hidden" id="colPickerMenuConversion">
+                  <!-- Populated by app.js -->
+                </div>
+              </div>
+              <span class="mono-input toolbar-count" id="lblConversionGridCount">0 rows</span>
+            </div>
+
+            <!-- Staged Changes Toolbar for Conversion Data -->
+            <div id="stagedEditsWrapConversion" class="staged-edits-bar hidden">
+              <span id="unsavedEditsChipConversion" class="dirty-chip">0 modified rows</span>
+              <button class="btn xs ghost" id="btnToggleShowOnlyChangedConversion" title="Toggle between viewing only changed rows vs all rows">Show Changed Only</button>
+              <button class="btn xs primary" id="btnSaveStagedEditsConversion">Save to Dataverse</button>
+              <button class="btn xs ghost" id="btnDiscardStagedEditsConversion">Discard</button>
+            </div>
+
+            <div class="toolbar-actions">
+              <button class="btn primary" id="btnUploadConversion">Upload Excel / CSV</button>
+              <button class="btn" id="btnSyncConversionToDv" title="Upload & sync loaded conversion rows directly to Dataverse table">Sync to Dataverse</button>
+              <button class="btn ghost" id="btnDownloadConversionTemplate" title="Download standard Excel template for Conversion Reference">Download Template</button>
+              <button class="btn" id="btnExportExcelConversion">Export Excel</button>
+              <button class="btn danger-ghost" id="btnClearConversionData">Clear</button>
+            </div>
+          </div>
+
+          <div class="table-wrap">
+            <table class="table-grid" id="conversionPreviewTable">
+              <thead id="conversionPreviewThead"></thead>
+              <tbody id="conversionPreviewTbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
       <!-- ==================== VIEW 3: SETTINGS & CONNECTION ==================== -->
       <section class="view-panel" id="view-settings">
+        <div class="page-heading"><div><p class="page-kicker">Preferences</p><h1>Settings</h1><p>Manage your Dataverse connection and display preferences.</p></div></div>
         <div class="centered-col">
           <div class="panel">
             <div class="panel-head" style="display: flex; align-items: center; justify-content: space-between;">
-              <h3 style="margin: 0; font-size: 15px; font-weight: 600; color: var(--ink);">Dataverse connection</h3>
+              <h2 style="margin: 0; font-size: 15px; font-weight: 600; color: var(--ink);">Dataverse connection</h2>
               <div class="conn-inline" style="display: flex; align-items: center; gap: 7px;">
                 <span class="conn-dot" id="setConnDot"></span>
                 <span class="eyebrow" id="setConnText" style="letter-spacing: 0.08em; font-size: 11px; font-weight: 600; color: var(--ink2);">DATAVERSE NOT CONNECTED</span>
@@ -187,9 +423,9 @@
 
             <div class="panel-body form-rows">
               <div class="form-row">
-                <span class="form-label">Environment URL</span>
+                <label class="form-label" for="cfgEnvUrl">Environment URL</label>
                 <div class="form-control" style="flex: 1;">
-                  <input type="text" id="cfgEnvUrl" class="input mono-input" style="width: 100%;" placeholder="https://orgfa075889.crm.dynamics.com" />
+                  <input type="url" id="cfgEnvUrl" name="environment-url" autocomplete="off" class="input mono-input" style="width: 100%;" placeholder="https://orgfa075889.crm.dynamics.com" />
                 </div>
               </div>
 
@@ -216,7 +452,7 @@
               </div>
 
               <div class="form-row">
-                <span class="form-label">Active solution</span>
+                <label class="form-label" for="selSolution">Active solution</label>
                 <div class="form-control" style="width: 100%;">
                   <select id="selSolution" class="select wide" style="width: 100%;">
                     <option value="">Connect to Dataverse…</option>
@@ -225,7 +461,7 @@
               </div>
 
               <div class="form-row">
-                <span class="form-label">Target LOA Table</span>
+                <label class="form-label" for="selLoaTable">Target LOA Table</label>
                 <div class="form-control" style="width: 100%;">
                   <select id="selLoaTable" class="select wide" style="width: 100%;">
                     <option value="cr63f_loamonitoring">LOA MONITORING (cr63f_loamonitoring)</option>
@@ -234,7 +470,16 @@
               </div>
 
               <div class="form-row">
-                <span class="form-label">Finance Data Table</span>
+                <label class="form-label" for="selLogsTable">Entry Logs Table</label>
+                <div class="form-control" style="width: 100%;">
+                  <select id="selLogsTable" class="select wide" style="width: 100%;">
+                    <option value="cr63f_loamonitoringlogs">LOA MONITORING LOGS (cr63f_loamonitoringlogs)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="form-row">
+                <label class="form-label" for="selFinanceTable">Finance Data Table</label>
                 <div class="form-control" style="width: 100%;">
                   <select id="selFinanceTable" class="select wide" style="width: 100%;">
                     <option value="cr63f_financereference">FINANCE REFERENCE (cr63f_financereference)</option>
@@ -243,16 +488,25 @@
               </div>
 
               <div class="form-row">
-                <span class="form-label">Tenant ID</span>
+                <label class="form-label" for="selConversionTable">Conversion Data Table</label>
                 <div class="form-control" style="width: 100%;">
-                  <input type="text" id="cfgTenantId" class="input mono-input" style="width: 100%;" placeholder="00000000-0000-0000-0000-000000000000" />
+                  <select id="selConversionTable" class="select wide" style="width: 100%;">
+                    <option value="cr63f_landconversionreference">LAND CONVERSION REFERENCE (cr63f_landconversionreference)</option>
+                  </select>
                 </div>
               </div>
 
               <div class="form-row">
-                <span class="form-label">Client ID</span>
+                <label class="form-label" for="cfgTenantId">Tenant ID</label>
                 <div class="form-control" style="width: 100%;">
-                  <input type="text" id="cfgClientId" class="input mono-input" style="width: 100%;" placeholder="00000000-0000-0000-0000-000000000000" />
+                  <input type="text" id="cfgTenantId" name="tenant-id" autocomplete="off" spellcheck="false" class="input mono-input" style="width: 100%;" placeholder="00000000-0000-0000-0000-000000000000" />
+                </div>
+              </div>
+
+              <div class="form-row">
+                <label class="form-label" for="cfgClientId">Client ID</label>
+                <div class="form-control" style="width: 100%;">
+                  <input type="text" id="cfgClientId" name="client-id" autocomplete="off" spellcheck="false" class="input mono-input" style="width: 100%;" placeholder="00000000-0000-0000-0000-000000000000" />
                 </div>
               </div>
             </div>
@@ -266,7 +520,7 @@
           <!-- ============ APPEARANCE PANEL (IMAGE 1 DESIGN) ============ -->
           <div class="panel">
             <div class="panel-head">
-              <h3 style="margin: 0; font-size: 15px; font-weight: 600; color: var(--ink);">Appearance</h3>
+              <h2 style="margin: 0; font-size: 15px; font-weight: 600; color: var(--ink);">Appearance</h2>
             </div>
             <div class="panel-body form-rows">
               <div class="form-row">
@@ -301,6 +555,49 @@
               </div>
             </div>
           </div>
+
+          <!-- ============ MAINTENANCE PANEL ============ -->
+          <div class="panel">
+            <div class="panel-head" style="display: flex; align-items: center; justify-content: space-between;">
+              <h2 style="margin: 0; font-size: 15px; font-weight: 600; color: var(--ink);">Maintenance</h2>
+            </div>
+            <div class="panel-body" style="padding: 20px; display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;">
+              <div style="max-width: 640px;">
+                <div style="font-size: 13.5px; font-weight: 600; color: var(--ink);">Recalculate Balance &amp; % Paid</div>
+                <div style="font-size: 12.5px; color: var(--ink3); margin-top: 2px;">Recalculates every account's Balance and % Paid from its own TCP and Deductible (fixes old values such as % Paid stored as 1 for 100%). Shows how many accounts would change before saving. Accounts without a TCP are left as they are. Export Land Master to Excel first as a backup.</div>
+              </div>
+              <button class="btn" id="btnRecalcPayments" type="button">Recalculate…</button>
+            </div>
+          </div>
+
+          <!-- ============ ABOUT / SOFTWARE UPDATES PANEL ============ -->
+          <div class="panel update-panel">
+            <div class="panel-head" style="display: flex; align-items: center; justify-content: space-between;">
+              <h2 style="margin: 0; font-size: 15px; font-weight: 600; color: var(--ink);">About &amp; updates</h2>
+              <span class="eyebrow" id="lblAppVersion" style="letter-spacing: 0.08em; font-size: 11px; font-weight: 600; color: var(--ink3);">VERSION</span>
+            </div>
+            <div class="panel-body" style="padding: 20px; display: flex; flex-direction: column; gap: 14px;">
+              <div class="update-summary">
+                <span class="update-dot" id="updateDot"></span>
+                <div>
+                  <div class="update-status" id="updateStatus">Checking update support…</div>
+                  <div class="update-hint" id="updateHint">New versions are published as GitHub releases.</div>
+                </div>
+              </div>
+              <div class="update-progress hidden" id="updateProgress" role="progressbar" aria-label="Update download progress" aria-valuemin="0" aria-valuemax="100">
+                <div class="update-progress-bar" id="updateProgressBar"></div>
+              </div>
+              <div class="update-notes hidden" id="updateNotes"></div>
+              <div class="update-actions">
+                <span class="eyebrow" id="updateLatest"></span>
+                <div class="update-buttons">
+                  <button class="btn" id="btnCheckUpdate" type="button">Check for updates</button>
+                  <button class="btn primary hidden" id="btnDownloadUpdate" type="button">Download update</button>
+                  <button class="btn primary hidden" id="btnInstallUpdate" type="button">Update and restart</button>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -330,7 +627,7 @@
             <select id="fType" class="select" required style="width: 100%; box-sizing: border-box;">
               <option value="LAND">LAND</option>
               <option value="ROW">ROW</option>
-              <option value="LAND-SPECIAL">LAND-SPECIAL</option>
+              <option value="LAND - SPECIAL">LAND - SPECIAL</option>
             </select>
           </div>
 
@@ -356,8 +653,8 @@
         </div>
 
         <div style="display: flex; flex-direction: column; gap: 4px;">
-          <label class="form-label">CONTROL NUMBER</label>
-          <input type="text" id="fControl" class="input mono-input" placeholder="e.g. ZAM-PAL-06225" />
+          <label class="form-label" for="fControl">CONTROL NUMBER <span aria-hidden="true">*</span></label>
+          <input type="text" id="fControl" class="input mono-input" placeholder="e.g. ZAM-PAL-06225" required />
         </div>
 
         <!-- 2. Payment Status (Manual entry & live calculation) -->
@@ -427,6 +724,7 @@
             <option value="SPTARC">SPTARC</option>
             <option value="SPTAGC">SPTAGC</option>
             <option value="SPPC">SPPC</option>
+            <option value="N/A">N/A</option>
           </select>
         </div>
 
@@ -491,6 +789,7 @@
               <option value="NO CONTRACT">NO CONTRACT</option>
               <option value="NO CONTRACTS & AR">NO CONTRACTS & AR</option>
               <option value="NO DOCUMENTS">NO DOCUMENTS</option>
+              <option value="N/A">N/A</option>
             </select>
           </div>
 
@@ -505,7 +804,12 @@
               <option value="SECURED SALE">SECURED SALE</option>
               <option value="SECURED LEASE">SECURED LEASE</option>
               <option value="SOLD TO PARTNER">SOLD TO PARTNER</option>
-              <option value="SS-STP">SS-STP</option>
+              <option value="SS - STP">SS - STP</option>
+              <option value="SL - STP">SL - STP</option>
+              <option value="SS - FROM LAND STP">SS - FROM LAND STP</option>
+              <option value="SL - FROM LAND STP">SL - FROM LAND STP</option>
+              <option value="SS - FROM ROW">SS - FROM ROW</option>
+              <option value="SS - RESCINDED">SS - RESCINDED</option>
               <option value="TO BE IDENTIFIED">TO BE IDENTIFIED</option>
               <option value="RESCINDED">RESCINDED</option>
               <option value="NOT USABLE">NOT USABLE</option>
@@ -528,6 +832,13 @@
         </div>
 
         <div style="display: flex; flex-direction: column; gap: 4px;">
+          <label class="form-label" for="fAcquisitionSubLevel">Acquisition Sub-Level <span aria-hidden="true">*</span></label>
+          <select id="fAcquisitionSubLevel" class="select" required>
+            <option value="">-- Select Acquisition Sub-Level --</option>
+          </select>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 4px;">
           <label class="form-label">RCC Price</label>
           <input type="text" id="fRccPrice" class="input mono-input" placeholder="0.00" />
         </div>
@@ -537,19 +848,19 @@
           5. Milestone Dates
         </div>
 
-        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px;">
-          <div style="display: flex; flex-direction: column; gap: 4px;">
-            <label class="form-label">Secured Date</label>
+        <div class="milestone-dates-grid">
+          <div style="display: flex; flex-direction: column; gap: 4px; min-width: 0;">
+            <label class="form-label" title="Secured Date">Secured Date</label>
             <input type="text" id="fSecuredDate" class="input mono-input date-masked" placeholder="MM/DD/YYYY" maxlength="10" />
           </div>
 
-          <div style="display: flex; flex-direction: column; gap: 4px;">
-            <label class="form-label">Secured Endorse Date</label>
+          <div style="display: flex; flex-direction: column; gap: 4px; min-width: 0;">
+            <label class="form-label" title="Secured Endorse Date">Secured Endorse Date</label>
             <input type="text" id="fSecuredEndorseDate" class="input mono-input date-masked" placeholder="MM/DD/YYYY" maxlength="10" />
           </div>
 
-          <div style="display: flex; flex-direction: column; gap: 4px;">
-            <label class="form-label">Endorsed Date</label>
+          <div style="display: flex; flex-direction: column; gap: 4px; min-width: 0;">
+            <label class="form-label" title="Endorsed Date">Endorsed Date</label>
             <input type="text" id="fEndorsedDate" class="input mono-input date-masked" placeholder="MM/DD/YYYY" maxlength="10" />
           </div>
         </div>
@@ -565,9 +876,48 @@
     </div>
   </div>
 
-  <!-- TOAST CONTAINER -->
-  <div class="toast-wrap" id="toastWrap"></div>
+  <!-- ==================== CONFIRMATION & PROGRESS MODAL ==================== -->
+  <div class="modal-backdrop hidden" id="confirmModal">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div class="modal-header-icon" id="confirmModalIcon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        </div>
+        <div class="modal-header-text">
+          <h3 class="modal-title" id="confirmModalTitle">Confirm Action</h3>
+          <p class="modal-subtitle" id="confirmModalSubtitle">Please review before proceeding</p>
+        </div>
+        <button class="modal-close-btn" id="btnConfirmModalClose" aria-label="Close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p class="modal-message" id="confirmModalMessage"></p>
+        
 
-  <script src="app.js"></script>
+
+        <!-- Live Progress Container (for Sync & Batch operations) -->
+        <div class="modal-progress-wrap hidden" id="confirmModalProgressWrap">
+          <div class="modal-progress-track">
+            <div class="modal-progress-fill" id="confirmModalProgressBar" style="width: 0%;"></div>
+          </div>
+          <div class="modal-progress-meta">
+            <span class="modal-progress-status" id="confirmModalProgressStatus">Syncing records...</span>
+            <span class="modal-progress-percent" id="confirmModalProgressPercent">0%</span>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer" id="confirmModalFooter">
+        <button class="btn ghost" id="btnConfirmModalCancel">Cancel</button>
+        <button class="btn primary" id="btnConfirmModalOk">Confirm</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- CELL HOVER DIFF TOOLTIP -->
+  <div id="cellHoverTooltip" class="cell-hover-tooltip" aria-hidden="true" role="tooltip"></div>
+
+  <!-- TOAST CONTAINER -->
+  <div class="toast-wrap" id="toastWrap" role="status" aria-live="polite" aria-atomic="true"></div>
+
+  <script src="app.js?v=20261006c"></script>
 </body>
 </html>

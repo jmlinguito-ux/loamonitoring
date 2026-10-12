@@ -3,13 +3,15 @@
 import os
 import unittest
 import tempfile
+from unittest.mock import patch
 from app import Api
 import openpyxl
 
 
 class TestExportColumnFiltering(unittest.TestCase):
     def setUp(self):
-        self.app = Api()
+        with patch('dataverse.DataverseClient.try_silent_token', return_value=None):
+            self.app = Api()
         self.temp_dir = tempfile.TemporaryDirectory()
 
     def tearDown(self):
