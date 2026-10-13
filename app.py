@@ -60,7 +60,7 @@ from loa_engine import (
 APP_TITLE = "LOA Monitoring Tool"
 # Single source for the app version: shown in Settings > About, and read by
 # build-release.ps1 / the GitHub release workflow as the release version.
-APP_VERSION = "1.0.7"
+APP_VERSION = "1.0.8"
 
 
 def _settings_path() -> str:
@@ -4044,43 +4044,28 @@ class Api:
         secured_count = 0
         in_progress_count = 0
 
-        if records:
-            for r in records:
-                c_status = str(r.get('cr63f_conversionstatus') or r.get('Conversion Status') or '').strip().upper()
-                area_val = parse_float(r.get('cr63f_lotareaha') or r.get('Lot Area (Ha)') or r.get('cr63f_areaappliedhas') or 0.0)
+        # Land Master only, never the Conversion reference table: an empty
+        # Land Master (or a Mode filter with no accounts) shows zero, not reference data.
+        for r in records:
+            c_status = str(r.get('cr63f_conversionstatus') or r.get('Conversion Status') or '').strip().upper()
+            area_val = parse_float(r.get('cr63f_lotareaha') or r.get('Lot Area (Ha)') or r.get('cr63f_areaappliedhas') or 0.0)
 
-                # Counts reflect Land Master only, so they agree with the grid and
-                # exports. Reference data reaches Land Master via Update from References.
-                if not c_status or c_status in ('UNKNOWN', '-', ''):
-                    c_status = 'NOT YET ENDORSED'
+            # Counts reflect Land Master only, so they agree with the grid and
+            # exports. Reference data reaches Land Master via Update from References.
+            if not c_status or c_status in ('UNKNOWN', '-', ''):
+                c_status = 'NOT YET ENDORSED'
 
-                conv_status_counts[c_status] = conv_status_counts.get(c_status, 0) + 1
-                rank = conversion_rank(c_status)
-                if rank == 3:
-                    secured_count += 1
-                elif rank == 2:
-                    in_progress_count += 1
+            conv_status_counts[c_status] = conv_status_counts.get(c_status, 0) + 1
+            rank = conversion_rank(c_status)
+            if rank == 3:
+                secured_count += 1
+            elif rank == 2:
+                in_progress_count += 1
 
-                if area_val:
-                    total_applied_area += area_val
+            if area_val:
+                total_applied_area += area_val
 
-            total_conv_lots = rec_count
-        else:
-            source_conv = conv_rows
-            for cr in source_conv:
-                c_status = str(cr.get('DAR STATUS') or cr.get('DAR Status') or cr.get('cr63f_conversionstatus') or cr.get('cr63f_darstatus') or 'UNKNOWN').strip().upper()
-                if c_status and c_status not in ('UNKNOWN', '-', ''):
-                    conv_status_counts[c_status] = conv_status_counts.get(c_status, 0) + 1
-                    rank = conversion_rank(c_status)
-                    if rank == 3:
-                        secured_count += 1
-                    elif rank == 2:
-                        in_progress_count += 1
-
-                area_val = parse_float(cr.get('AREA APPLIED (HAS.)') or cr.get('Area Applied (Has.)') or cr.get('cr63f_areaappliedhas') or cr.get('cr63f_area') or 0)
-                if area_val:
-                    total_applied_area += area_val
-            total_conv_lots = len(source_conv)
+        total_conv_lots = rec_count
 
         conv_secured_pct = (secured_count / total_conv_lots * 100.0) if total_conv_lots > 0 else 0.0
 
@@ -4857,22 +4842,23 @@ class Api:
 
     def save_settings(self, new_settings: dict) -> dict:
         try:
-            cfg = {
-                'environment_url': new_settings.get('environment_url', '').rstrip('/'),
-                'tenant_id': new_settings.get('tenant_id', ''),
-                'client_id': new_settings.get('client_id', ''),
-                'solution_name': new_settings.get('solution_name', ''),
-                'solution_id': new_settings.get('solution_id', ''),
-                'loa_table': new_settings.get('loa_table', 'cr63f_loamonitoring'),
-                'finance_table': new_settings.get('finance_table', 'cr63f_financereference'),
-                'conversion_table': new_settings.get('conversion_table', 'cr63f_landconversionreference'),
-                'logs_table': new_settings.get('logs_table', 'cr63f_loamonitoringlogs'),
-            }
-            dv.save_config(cfg)
-            self._init_dataverse()
+            # Only the keys that were sent are changed. A theme-only save used
+            # to rewrite the connection with blanks, so it reset on next start.
+            # A blank value keeps the saved one (load_config fills defaults).
+            conn_keys = ('environment_url', 'tenant_id', 'client_id', 'solution_name', 'solution_id',
+                         'loa_table', 'finance_table', 'conversion_table', 'logs_table')
+            updates = {k: str(new_settings[k]).strip() for k in conn_keys
+                       if k in new_settings and str(new_settings[k] or '').strip()}
+            if updates:
+                cfg = dv.load_config()
+                cfg.update(updates)
+                cfg['environment_url'] = cfg['environment_url'].rstrip('/')
+                dv.save_config(cfg)
+                self._init_dataverse()
 
-            self.settings['theme'] = new_settings.get('theme', 'light')
-            save_app_settings(self.settings)
+            if new_settings.get('theme'):
+                self.settings['theme'] = new_settings['theme']
+                save_app_settings(self.settings)
 
             return {'success': True, 'message': 'Settings saved successfully.'}
         except Exception as e:
