@@ -36,6 +36,22 @@ def _token_cache_path() -> str:
     return data_file('.dv_token_cache.bin')
 
 
+# Connection used whenever a value is missing (decided 2026-10-13).
+DEFAULT_CONFIG = {
+    "environment_url": "https://orgfa075889.crm.dynamics.com",
+    "tenant_id": "70234e6c-22dd-42ec-b3ca-fee4c6a42328",
+    "client_id": "c16cfa67-0d61-46b4-8813-94197d53ce6b",
+    "solution_name": "LOA MONITORING (LOAMONITORING)",
+    "solution_id": "34c6d4d3-b4b0-f111-aaac-7ced8d3b4de7",
+    "loa_table": "cr63f_loamonitoring",
+    "logs_table": "cr63f_loamonitoringlogs",
+    "finance_table": "cr63f_financereference",
+    "conversion_table": "cr63f_landconversionreference",
+}
+# Old default solution: replaced by LOA MONITORING when found in a saved config.
+_OLD_DEFAULT_SOLUTION_ID = "a7f41cec-5786-f111-ab0f-7ced8d3b4de7"
+
+
 def load_config() -> dict:
     path = config_path()
     if not os.path.exists(path):
@@ -44,19 +60,28 @@ def load_config() -> dict:
         if os.path.exists(local_cfg):
             path = local_cfg
         else:
-            return {
-                "tenant_id": "70234e6c-22dd-42ec-b3ca-fee4c6a42328",
-                "client_id": "c16cfa67-0d61-46b4-8813-94197d53ce6b",
-                "environment_url": "https://orgfa075889.crm.dynamics.com",
-                "solution_name": "SOURCING AND NEGO (BATANGASNEGO)",
-                "solution_id": "a7f41cec-5786-f111-ab0f-7ced8d3b4de7",
-                "loa_table": "cr63f_loamonitoring",
-                "finance_table": "cr63f_financereference",
-                "conversion_table": "cr63f_landconversionreference",
-                "logs_table": "cr63f_loamonitoringlogs"
-            }
-    with open(path, 'r', encoding='utf-8') as f:
-        cfg = json.load(f)
+            return dict(DEFAULT_CONFIG)
+    try:
+        with open(path, 'r', encoding='utf-8') as f:
+            cfg = json.load(f)
+    except (OSError, ValueError):
+        cfg = {}
+    if not isinstance(cfg, dict):
+        cfg = {}
+    changed = False
+    if str(cfg.get('solution_id') or '') == _OLD_DEFAULT_SOLUTION_ID:
+        cfg['solution_id'] = DEFAULT_CONFIG['solution_id']
+        cfg['solution_name'] = DEFAULT_CONFIG['solution_name']
+        changed = True
+    for key, value in DEFAULT_CONFIG.items():
+        if not str(cfg.get(key) or '').strip():
+            cfg[key] = value
+            changed = True
+    if changed:
+        try:
+            save_config(cfg)
+        except Exception:
+            pass
     for key in ('environment_url', 'tenant_id', 'client_id'):
         if not cfg.get(key):
             raise ValueError(f'dataverse_config.json is missing "{key}".')

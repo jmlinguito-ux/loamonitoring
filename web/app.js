@@ -9307,9 +9307,14 @@ function renderLogsChunk(startIdx, count) {
       if (res.success && res.solutions && res.solutions.length) {
         state.solutions = res.solutions;
         let html = '<option value="">-- All Org Custom Tables --</option>';
+        // Exactly one option is selected: the saved solution, else LOA MONITORING.
+        // (Marking both made the browser pick whichever came last.)
+        const saved = res.solutions.find(s => state.activeSolutionId &&
+          (state.activeSolutionId === s.id || state.activeSolutionId === s.uniqueName));
+        const fallback = res.solutions.find(s => s.uniqueName === 'LOAMONITORING' || s.friendlyName === 'LOA MONITORING');
+        const chosen = saved || fallback;
         res.solutions.forEach(s => {
-          const isSelected = (state.activeSolutionId && (state.activeSolutionId === s.id || state.activeSolutionId === s.uniqueName)) ||
-                             s.friendlyName === 'LOA MONITORING' || s.uniqueName === 'LOAMONITORING';
+          const isSelected = chosen && s.id === chosen.id;
           html += `<option value="${escapeHtml(s.id)}" ${isSelected ? 'selected' : ''}>${escapeHtml(s.friendlyName)} (${escapeHtml(s.uniqueName)})</option>`;
         });
         dom.selSolution.innerHTML = html;
