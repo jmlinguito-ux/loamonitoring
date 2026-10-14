@@ -69,6 +69,12 @@ class TestDashboardAnalytics(unittest.TestCase):
         self.assertEqual(fb["direct_sale_count"], 2)
         self.assertEqual(fb["stp_sale_count"], 1)
         self.assertEqual(fb["direct_sale_balance"], 1500000.0)
+        # Payments made count every account; balance to pay counts direct sale +
+        # secured lease only (decision 2026-10-14). The SS - STP account has paid 0
+        # and its 1,500,000 balance is the partner's.
+        self.assertEqual(fb["payments_made_total"], 1500000.0)
+        self.assertEqual(fb["balance_to_pay"], 1500000.0)
+        self.assertEqual(fb["turned_over_balance"], 1500000.0)
 
         # Conversion Metrics
         cm = res["conversion_metrics"]

@@ -4456,3 +4456,19 @@ body { font-variant-numeric: tabular-nums; font-size: 13.5px; }
 
 /* Land Master KPI note: turned over to partner excluded (2026-10-14) */
 .kpi-card .kpi-note { font-size: 12px; color: var(--ink3); margin-top: 2px; }
+
+/* Payment progress: paid / remaining line under a group (2026-10-14) */
+.ov-li-sum .ov-nm { color: var(--ink3); font-size: 12px; padding-left: 18px; }
+.ov-li-sum .ov-nm b { font-weight: 600; color: var(--ink2); }
+
+/* Payment progress: hover details (2026-10-14) */
+.ov-tip[title] { cursor: help; }
+.ov-foot b { color: var(--ink2); font-weight: 600; }
+#dashFinancePaidRatio[title], #dashFinanceSub[title] { cursor: help; }
+
+/* Payment progress: secured lease's own % paid block (2026-10-14) */
+.ov-sub-prog { display: flex; flex-direction: column; gap: 6px; margin-top: 4px; padding-top: 10px; border-top: 1px dashed var(--line-soft); }
+.ov-sub-hd { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px; }
+.ov-sub-hd b { font-size: 16px; font-weight: 600; color: var(--ink); }
+.ov-sub-hd span { font-size: 12px; color: var(--ink3); }
+.ov-stack-sm { height: 6px; }
