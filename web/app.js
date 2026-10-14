@@ -8322,6 +8322,26 @@
     return true;
   }
 
+  function formatLogDateTime(raw) {
+    if (!raw) return '-';
+    const s = String(raw).trim();
+    if (!s || s === '-') return '-';
+    if (s.includes('T') || s.endsWith('Z')) {
+      const d = new Date(s);
+      if (!isNaN(d.getTime())) {
+        const pad = n => String(n).padStart(2, '0');
+        const mm = pad(d.getMonth() + 1);
+        const dd = pad(d.getDate());
+        const yyyy = d.getFullYear();
+        let h = d.getHours();
+        const ampm = h >= 12 ? 'PM' : 'AM';
+        h = h % 12 || 12;
+        return `${mm}/${dd}/${yyyy} ${pad(h)}:${pad(d.getMinutes())} ${ampm}`;
+      }
+    }
+    return s;
+  }
+
 function renderLogsChunk(startIdx, count) {
     if (!dom.logsTableBody) return;
     const end = Math.min(startIdx + count, logsState.filteredLogs.length);
@@ -8404,7 +8424,7 @@ function renderLogsChunk(startIdx, count) {
           td.style.fontSize = '12px';
         } else if (col.key === 'log_time') {
           const lt = r.log_time ?? r['Log Time'] ?? r.cr63f_logtime ?? r.createdon ?? r.timestamp ?? '';
-          td.textContent = String(lt || '-');
+          td.textContent = formatLogDateTime(lt);
           td.style.fontFamily = 'var(--mono)';
           td.style.fontSize = '12px';
         } else if (col.key === 'area_index') {

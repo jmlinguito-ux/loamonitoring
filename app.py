@@ -61,7 +61,7 @@ from loa_engine import (
 APP_TITLE = "LOA Monitoring Tool"
 # Single source for the app version: shown in Settings > About, and read by
 # build-release.ps1 / the GitHub release workflow as the release version.
-APP_VERSION = "1.0.11"  # stamped by the release workflow from its version input
+APP_VERSION = "1.0.14"  # stamped by the release workflow from its version input
 
 
 def _settings_path() -> str:
@@ -869,7 +869,17 @@ def derive_field_diffs_from_snapshots(
     snapshots: List[Dict[str, Any]] = []
 
     def get_log_timestamp(rec: dict) -> Any:
-        """Use the immutable Dataverse creation time as the audit timestamp."""
+        """Use the immutable Dataverse creation time as the audit timestamp, converted to local time."""
+        raw = rec.get('__createdon_raw')
+        if raw:
+            dt = parse_log_datetime(raw)
+            if dt:
+                return dt.strftime('%m/%d/%Y %I:%M %p')
+        c_on = rec.get('createdon')
+        if c_on and ('Z' in str(c_on) or '+' in str(c_on)):
+            dt = parse_log_datetime(c_on)
+            if dt:
+                return dt.strftime('%m/%d/%Y %I:%M %p')
         return (
             rec.get('createdon') or rec.get('cr63f_logtime') or
             rec.get('timestamp') or rec.get('log_time') or
@@ -1013,6 +1023,8 @@ def derive_field_diffs_from_snapshots(
                     details=f"Initial record entry for {ctrl_val or area_idx or lot_key}",
                     full_record=curr_s
                 )
+                if curr_s.get('__createdon_raw'):
+                    init_entry['__createdon_raw'] = curr_s['__createdon_raw']
                 if rec_log_id:
                     init_entry['__id'] = f"{rec_log_id}_init"
                 derived_diffs.append(init_entry)
@@ -1038,6 +1050,8 @@ def derive_field_diffs_from_snapshots(
                         details=f"Initial record entry for {ctrl_val or area_idx or lot_key}",
                         full_record=curr_s
                     )
+                    if curr_s.get('__createdon_raw'):
+                        init_entry['__createdon_raw'] = curr_s['__createdon_raw']
                     if rec_log_id:
                         init_entry['__id'] = f"{rec_log_id}_init"
                     derived_diffs.append(init_entry)
@@ -1090,6 +1104,8 @@ def derive_field_diffs_from_snapshots(
                         details=f"Updated {canon_name} from {old_disp} to {new_disp}",
                         full_record=curr_s
                     )
+                    if curr_s.get('__createdon_raw'):
+                        diff_log['__createdon_raw'] = curr_s['__createdon_raw']
                     if rec_log_id:
                         diff_log['__id'] = f"{rec_log_id}_{canon_name.replace(' ', '_')}"
                     snapshot_diffs.append(diff_log)
