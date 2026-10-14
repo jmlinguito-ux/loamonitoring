@@ -9332,14 +9332,15 @@ function renderLogsChunk(startIdx, count) {
 
     if (!pageItems.length) {
       const msg = (q || dashSourceFilter !== 'ALL') ? 'No accounts match. Try clearing the search or source filter.' : 'No accounts changed in this work week.';
-      dom.dashAuditTableBody.innerHTML = `<tr><td colspan="6" class="ov-empty-row">${escapeHtml(msg)}</td></tr>`;
+      dom.dashAuditTableBody.innerHTML = `<tr><td colspan="5" class="ov-empty-row">${escapeHtml(msg)}</td></tr>`;
     } else {
       dom.dashAuditTableBody.innerHTML = pageItems.map(a => {
         const open = dashExpandedAccounts.has(a.account);
         const changes = a.changes || [];
         const fieldChips = a.is_new && !changes.length
           ? '<span class="ov-chip mut">New account</span>'
-          : changes.slice(0, 4).map(c => `<span class="ov-chip mut">${escapeHtml(prettyFieldName(c.field_name))}</span>`).join('') + (changes.length > 4 ? `<span class="ov-chip mut">+${changes.length - 4}</span>` : '');
+          : changes.slice(0, 2).map(c => `<span class="ov-chip mut">${escapeHtml(prettyFieldName(c.field_name))}</span>`).join('')
+            + (changes.length > 2 ? `<span class="ov-chip mut" title="${escapeHtml(changes.slice(2).map(c => prettyFieldName(c.field_name)).join(', '))}">+${changes.length - 2} more</span>` : '');
         const primarySrc = a.is_new ? 'new' : ((a.sources || [])[0] || 'manual');
         const sub = [a.area_index && a.area_index !== a.account ? a.area_index : '', a.mode ? titleCaseStatus(a.mode) : '', a.contract_price ? formatPesoCompact(a.contract_price) : ''].filter(Boolean).join(' · ');
         let html = `
@@ -9348,18 +9349,26 @@ function renderLogsChunk(startIdx, count) {
             <td class="ov-acct"><b>${escapeHtml(a.account)}</b><span>${escapeHtml(sub)}</span></td>
             <td><div class="ov-fields">${fieldChips}</div></td>
             <td><span class="ov-chip src-${primarySrc}">${escapeHtml(DASH_SOURCE_LABELS[primarySrc] || primarySrc)}</span>${(a.sources || []).length > 1 ? `<span class="ov-muted"> +${a.sources.length - 1}</span>` : ''}</td>
-            <td class="ov-when">${escapeHtml(formatShortDateTime(a.last_time))}</td>
-            <td class="ov-when">${escapeHtml(a.last_by || 'Unknown')}</td>
+            <td class="ov-when"><span>${escapeHtml(formatShortDateTime(a.last_time))}</span><span class="ov-by">${escapeHtml(a.last_by || 'Unknown')}</span></td>
           </tr>`;
         if (open) {
+          // One line per change: field name, then old → new (wraps inside its own line).
           const lines = changes.map(c => {
-            return `<span class="ov-df">${escapeHtml(prettyFieldName(c.field_name))}</span>
-              <span class="ov-do">${escapeHtml(String(formatLogValue(c.field_name, c.old_value) || '(blank)'))}</span>
-              <span class="ov-darrow">→</span>
-              <span class="ov-dn">${escapeHtml(String(formatLogValue(c.field_name, c.new_value) || '(blank)'))}</span>`;
+            const shown = (v) => { const t = String(formatLogValue(c.field_name, v) || '').trim(); return t === '-' ? '' : t; };
+            const oldV = shown(c.old_value);
+            const newV = shown(c.new_value);
+            const meta = [DASH_SOURCE_LABELS[c.source] || '', c.log_time ? formatShortDateTime(c.log_time) : '', c.updated_by || ''].filter(Boolean).join(' · ');
+            return `<div class="ov-dline"${meta ? ` title="${escapeHtml(meta)}"` : ''}>
+              <span class="ov-df">${escapeHtml(prettyFieldName(c.field_name))}</span>
+              <span class="ov-dvals">
+                <span class="ov-do${oldV ? '' : ' blank'}">${escapeHtml(oldV || '(blank)')}</span>
+                <span class="ov-darrow" aria-hidden="true">→</span>
+                <span class="ov-dn${newV ? '' : ' blank'}">${escapeHtml(newV || '(blank)')}</span>
+              </span>
+            </div>`;
           }).join('');
           html += `
-          <tr class="ov-expand"><td></td><td colspan="5">
+          <tr class="ov-expand"><td></td><td colspan="4">
             ${lines ? `<div class="ov-diff">${lines}</div>` : '<p class="ov-muted">New account added this week.</p>'}
             <div class="ov-rowacts"><button type="button" class="btn sm" data-open="${escapeHtml(a.account)}">Open in Land Master</button></div>
           </td></tr>`;
