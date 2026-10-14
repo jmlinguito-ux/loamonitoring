@@ -4142,19 +4142,28 @@
     let sumDed = 0;
     let sumBal = 0;
     const shownRecords = state.filteredRecords !== undefined ? state.filteredRecords : state.records;
-    // Turned over to partner (any Mode with STP: SS - STP, SS - FROM LAND STP,
-    // SL - STP, SL - FROM LAND STP) is left out of all four boxes (decision 2026-10-14).
-    const isTurnedOver = (r) => {
-      const staged = (state.stagedEdits && r.__id && state.stagedEdits[r.__id]) ? state.stagedEdits[r.__id] : {};
-      const mode = String(staged['new_mode'] ?? staged['Mode'] ?? r['new_mode'] ?? r['Mode'] ?? r['MODE'] ?? r['cr63f_mode'] ?? '').toUpperCase();
-      return /\bSTP\b/.test(mode) || mode.includes('SOLD TO PARTNER');
+    const stagedOf = (r) => (state.stagedEdits && r.__id && state.stagedEdits[r.__id]) ? state.stagedEdits[r.__id] : {};
+    // Same groups as the Overview (app.py _payment_group). Turned over to partner
+    // (any Mode with STP) is left out of all four boxes; the rest are summed and
+    // broken down per group in the hover text (decisions 2026-10-14).
+    const groupOf = (r) => {
+      const staged = stagedOf(r);
+      const mode = String(staged['new_mode'] ?? staged['Mode'] ?? r['new_mode'] ?? r['Mode'] ?? r['MODE'] ?? r['cr63f_mode'] ?? '').trim().toUpperCase();
+      if (mode.includes('RESCIND')) return 'RESCINDED';
+      if (/\bSTP\b/.test(mode) || mode.includes('SOLD TO PARTNER')) return 'TURNED_OVER';
+      if (/\bLEASE\b/.test(mode) || /^SL\b/.test(mode)) return 'LEASE';
+      if (/\bSALE\b/.test(mode) || /^SS\b/.test(mode)) return 'DIRECT_SALE';
+      return 'OTHER';
     };
-    const targetRecords = shownRecords.filter(r => !isTurnedOver(r));
-    const excludedCount = shownRecords.length - targetRecords.length;
+    const groups = {};
+    let excludedCount = 0;
+    let shownCount = 0;
 
-    targetRecords.forEach(r => {
-      const id = r.__id;
-      const staged = (state.stagedEdits && id && state.stagedEdits[id]) ? state.stagedEdits[id] : {};
+    shownRecords.forEach(r => {
+      const g = groupOf(r);
+      if (g === 'TURNED_OVER') { excludedCount++; return; }
+      shownCount++;
+      const staged = stagedOf(r);
       const tcp = parseAmount(staged['Total Contract Price'] ?? staged['cr63f_totalcontractprice'] ?? r['Total Contract Price'] ?? r['cr63f_totalcontractprice']);
       const ded = parseAmount(staged['Total Payment Deductible to TCP'] ?? staged['cr63f_totalpaymentdeductibletotcp'] ?? r['Total Payment Deductible to TCP'] ?? r['cr63f_totalpaymentdeductibletotcp']);
       // Same rule as the Overview: each account's own balance, clamped at 0,
@@ -4163,16 +4172,42 @@
       sumTcp += tcp;
       sumDed += ded;
       sumBal += bal;
+      const t = groups[g] || (groups[g] = { count: 0, tcp: 0, ded: 0, bal: 0 });
+      t.count++; t.tcp += tcp; t.ded += ded; t.bal += bal;
     });
 
-    if (dom.kpiRecordCount) dom.kpiRecordCount.textContent = targetRecords.length.toLocaleString();
+    if (dom.kpiRecordCount) dom.kpiRecordCount.textContent = shownCount.toLocaleString();
     if (dom.kpiTotalTcp) dom.kpiTotalTcp.textContent = formatPrice(sumTcp) || '₱0.00';
     if (dom.kpiTotalDeductible) dom.kpiTotalDeductible.textContent = formatPrice(sumDed) || '₱0.00';
     if (dom.kpiTotalBalance) dom.kpiTotalBalance.textContent = formatPrice(sumBal) || '₱0.00';
+
+    const GROUP_LABELS = [
+      ['DIRECT_SALE', 'Direct sale', 'matches Overview'],
+      ['LEASE', 'Secured lease', ''],
+      ['RESCINDED', 'Rescinded', ''],
+      ['OTHER', 'Mode not sale or lease', '']
+    ];
+    const present = GROUP_LABELS.filter(([g]) => groups[g] && groups[g].count);
+    const breakdown = (key, total) => present.map(([g, label, note]) =>
+      `${label}: ${formatPrice(groups[g][key]) || '₱0.00'}${note ? ` (${note})` : ''}`)
+      .concat([`Total: ${formatPrice(total) || '₱0.00'}`,
+        excludedCount ? `Excludes ${excludedCount.toLocaleString()} turned over to partner.` : 'Excludes turned over to partner.'])
+      .join('\n');
+    const setTip = (el, text) => { const card = el && el.closest('.kpi-card'); if (card) card.title = text; };
+    setTip(dom.kpiTotalTcp, breakdown('tcp', sumTcp));
+    setTip(dom.kpiTotalDeductible, breakdown('ded', sumDed));
+    setTip(dom.kpiTotalBalance, breakdown('bal', sumBal));
+    setTip(dom.kpiRecordCount, present.map(([g, label]) => `${label}: ${groups[g].count.toLocaleString()}`)
+      .concat([`Turned over to partner (not counted): ${excludedCount.toLocaleString()}`]).join('\n'));
+
     const exclNote = document.getElementById('kpiExcludedNote');
-    if (exclNote) exclNote.textContent = excludedCount
-      ? `Excludes ${excludedCount.toLocaleString()} turned over to partner`
-      : 'Excludes turned over to partner';
+    if (exclNote) {
+      const names = present.map(([, label]) => label.toLowerCase());
+      const included = names.length > 1 ? `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}` : (names[0] || '');
+      const lead = included ? included.charAt(0).toUpperCase() + included.slice(1) : '';
+      const excl = excludedCount ? `excludes ${excludedCount.toLocaleString()} turned over to partner` : 'excludes turned over to partner';
+      exclNote.textContent = lead ? `${lead} · ${excl}` : excl.charAt(0).toUpperCase() + excl.slice(1);
+    }
 
     const activeMode = (dom.modeFilterPanel || dom.modeFilter)?.value || 'ALL';
     if (dom.kpiModeActiveBadge) {
