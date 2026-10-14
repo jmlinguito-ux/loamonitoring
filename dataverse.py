@@ -18,6 +18,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import requests
 from app_paths import data_file
+from loa_engine import parse_log_datetime
 
 try:
     import msal
@@ -942,6 +943,13 @@ class DataverseClient:
                         rec[log_name] = val
                     elif disp not in rec:
                         rec[disp] = ''
+                if rec.get('__createdon_raw'):
+                    raw_dt = parse_log_datetime(rec['__createdon_raw'])
+                    if raw_dt:
+                        local_disp = raw_dt.strftime('%m/%d/%Y %I:%M %p')
+                        rec['createdon'] = local_disp
+                        if 'Created On' in rec:
+                            rec['Created On'] = local_disp
                 all_records.append(rec)
 
             if max_records and len(all_records) >= max_records:
