@@ -4449,3 +4449,10 @@ body { font-variant-numeric: tabular-nums; font-size: 13.5px; }
   .ov-two, .ov-port { flex: 1 1 0; min-height: 0; grid-template-rows: minmax(0, 1fr); align-items: stretch; }
   .ov-two > .ov-card, .ov-port > .ov-card { height: auto; min-height: 0; }
 }
+
+/* Sidebar brand: version and author under the app name (2026-10-14) */
+.tb-brand-text { display: flex; flex-direction: column; min-width: 0; line-height: 1.2; }
+.nav-brand .tb-version { font-size: 11.5px; font-weight: 500; color: var(--ink3); white-space: nowrap; }
+
+/* Land Master KPI note: turned over to partner excluded (2026-10-14) */
+.kpi-card .kpi-note { font-size: 12px; color: var(--ink3); margin-top: 2px; }

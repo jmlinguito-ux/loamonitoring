@@ -62,6 +62,17 @@ jobs:
           "RELEASE_VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
           "RELEASE_TAG=$tag" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
+      - name: Stamp app version
+        shell: pwsh
+        run: |
+          $path = 'app.py'
+          $text = [IO.File]::ReadAllText($path)
+          $pattern = '(?m)^APP_VERSION = "[^"]*"'
+          if ($text -notmatch $pattern) { throw 'APP_VERSION line not found in app.py.' }
+          $text = [regex]::Replace($text, $pattern, "APP_VERSION = `"$env:RELEASE_VERSION`"", 1)
+          [IO.File]::WriteAllText($path, $text, (New-Object System.Text.UTF8Encoding($false)))
+          Select-String -Path $path -Pattern '^APP_VERSION' | ForEach-Object { $_.Line }
+
       - name: Install build dependencies
         shell: pwsh
         run: |

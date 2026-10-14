@@ -61,7 +61,7 @@ from loa_engine import (
 APP_TITLE = "LOA Monitoring Tool"
 # Single source for the app version: shown in Settings > About, and read by
 # build-release.ps1 / the GitHub release workflow as the release version.
-APP_VERSION = "1.0.8"
+APP_VERSION = "1.0.11"  # stamped by the release workflow from its version input
 
 
 def _settings_path() -> str:
@@ -4559,7 +4559,7 @@ class Api:
 
         s = wb.active
         s.title = 'Summary'
-        s['A1'] = 'LOA Monitor — Weekly report'
+        s['A1'] = 'LOA Monitoring — Weekly report'
         s['A1'].font = Font(bold=True, size=14)
         period = str(data.get('selected_work_week') or 'All weeks')
         if ws_sum.get('week_start'):
@@ -5063,6 +5063,26 @@ def main() -> None:
         threading.Timer(1.5, lambda: api.check_for_updates(False)).start()
 
     window.events.loaded += _auto_check_updates
+
+    def _hide_title_bar_icon():
+        # Blank title-bar icon (decision 2026-10-14). WinForms ShowIcon=False hides
+        # only the caption icon; the taskbar keeps the app icon.
+        try:
+            form = getattr(window, 'native', None)
+            if form is None:
+                return
+            from System import Action  # pythonnet, loaded by pywebview's WinForms backend
+
+            def _apply():
+                form.ShowIcon = False
+            if form.InvokeRequired:
+                form.Invoke(Action(_apply))
+            else:
+                _apply()
+        except Exception:
+            pass  # cosmetic only; other platforms/backends have no WinForms form
+
+    window.events.shown += _hide_title_bar_icon
 
     web_storage = os.path.join(ensure_user_data(), 'web_profile')
     os.makedirs(web_storage, exist_ok=True)

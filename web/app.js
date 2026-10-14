@@ -1798,11 +1798,21 @@
     }
   }
 
+  // Settings > About label and the sidebar "v1.0.x by JMLI" line. Prefer the
+  // installed version reported by the updater over the build constant.
+  function setAppVersionLabels(version) {
+    const v = String(version || '').trim();
+    if (!v) return;
+    if (dom.lblAppVersion) dom.lblAppVersion.textContent = `VERSION ${v}`;
+    const brand = document.getElementById('lblBrandVersion');
+    if (brand) brand.textContent = `v${v} by JMLI`;
+  }
+
   function applyState(s) {
     state.connected = s.connected;
     state.financeLoadedCount = s.finance_loaded_count || 0;
     state.financeSource = s.finance_source || 'None';
-    if (dom.lblAppVersion && s.app_version) dom.lblAppVersion.textContent = `VERSION ${s.app_version}`;
+    setAppVersionLabels((s.update && s.update.currentVersion) || s.app_version);
     if (s.update) renderUpdate(s.update);
     state.recentFinanceFiles = s.recent_finance_files || [];
     state.conversionLoadedCount = s.conversion_loaded_count || 0;
@@ -4131,7 +4141,16 @@
     let sumTcp = 0;
     let sumDed = 0;
     let sumBal = 0;
-    const targetRecords = state.filteredRecords !== undefined ? state.filteredRecords : state.records;
+    const shownRecords = state.filteredRecords !== undefined ? state.filteredRecords : state.records;
+    // Turned over to partner (any Mode with STP: SS - STP, SS - FROM LAND STP,
+    // SL - STP, SL - FROM LAND STP) is left out of all four boxes (decision 2026-10-14).
+    const isTurnedOver = (r) => {
+      const staged = (state.stagedEdits && r.__id && state.stagedEdits[r.__id]) ? state.stagedEdits[r.__id] : {};
+      const mode = String(staged['new_mode'] ?? staged['Mode'] ?? r['new_mode'] ?? r['Mode'] ?? r['MODE'] ?? r['cr63f_mode'] ?? '').toUpperCase();
+      return /\bSTP\b/.test(mode) || mode.includes('SOLD TO PARTNER');
+    };
+    const targetRecords = shownRecords.filter(r => !isTurnedOver(r));
+    const excludedCount = shownRecords.length - targetRecords.length;
 
     targetRecords.forEach(r => {
       const id = r.__id;
@@ -4150,6 +4169,10 @@
     if (dom.kpiTotalTcp) dom.kpiTotalTcp.textContent = formatPrice(sumTcp) || '₱0.00';
     if (dom.kpiTotalDeductible) dom.kpiTotalDeductible.textContent = formatPrice(sumDed) || '₱0.00';
     if (dom.kpiTotalBalance) dom.kpiTotalBalance.textContent = formatPrice(sumBal) || '₱0.00';
+    const exclNote = document.getElementById('kpiExcludedNote');
+    if (exclNote) exclNote.textContent = excludedCount
+      ? `Excludes ${excludedCount.toLocaleString()} turned over to partner`
+      : 'Excludes turned over to partner';
 
     const activeMode = (dom.modeFilterPanel || dom.modeFilter)?.value || 'ALL';
     if (dom.kpiModeActiveBadge) {
@@ -9467,7 +9490,7 @@ function renderLogsChunk(startIdx, count) {
     const busy = UPDATE_BUSY.includes(status);
     const managed = u.configured !== false && u.active !== false;
 
-    if (dom.lblAppVersion && u.currentVersion) dom.lblAppVersion.textContent = `VERSION ${u.currentVersion}`;
+    if (u.currentVersion) setAppVersionLabels(u.currentVersion);
 
     const titles = {
       idle: 'Updates are checked when the app starts',

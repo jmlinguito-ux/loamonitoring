@@ -19,7 +19,10 @@
     <nav class="nav-strip" aria-label="Main navigation">
       <div class="nav-brand">
         <img src="app-icon.png" class="tb-logo" alt="" width="28" height="28" />
-        <span class="tb-title">LOA Monitor</span>
+        <span class="tb-brand-text">
+          <span class="tb-title">LOA Monitoring</span>
+          <span class="tb-version" id="lblBrandVersion">by JMLI</span>
+        </span>
       </div>
       <div class="tabs-group">
         <div class="nav-cluster">
@@ -65,6 +68,7 @@
           <div class="kpi-card">
             <span class="kpi-label">Total LOA Records</span>
             <span class="kpi-value" id="kpiRecordCount">0</span>
+            <span class="kpi-note" id="kpiExcludedNote" title="SS - STP, SS - FROM LAND STP, SL - STP and SL - FROM LAND STP accounts are not counted in these totals.">Excludes turned over to partner</span>
           </div>
           <div class="kpi-card">
             <span class="kpi-label">Total Contract Price (TCP)</span>
