@@ -27,7 +27,7 @@ class TestOverviewInsights(unittest.TestCase):
             {'__id': '3', 'cr63f_control1': 'LOA-3', 'cr63f_areaindex': 'AI-3', 'new_mode': 'DIRECT',
              'cr63f_totalcontractprice': '800000', 'cr63f_totalpaymentdeductibletotcp': '100000', 'cr63f_conversionstatus': 'NOT YET ENDORSED'},
         ]
-        # WW-39 = 2026-09-23..29, WW-40 = 2026-09-30..10-06
+        # Tuesday-Monday weeks: WW-39 = 2026-09-22..28, WW-40 = 2026-09-29..10-05
         self.app.log_records = [
             _log('LOA-1', 'Total Payment Deductible to TCP', '300000', '400000', '2026-09-24T09:00:00'),
             _log('LOA-1', 'Total Payment Deductible to TCP', '400000', '500000', '2026-10-01T09:00:00'),
@@ -44,8 +44,8 @@ class TestOverviewInsights(unittest.TestCase):
         self.assertEqual(res['selected_work_week'], '2026 · WW-40')
         ws = res['week_summary']
         self.assertEqual(ws['previous_week'], '2026 · WW-39')
-        self.assertEqual(ws['week_start'], '2026-09-30')
-        self.assertEqual(ws['week_end'], '2026-10-06')
+        self.assertEqual(ws['week_start'], '2026-09-29')
+        self.assertEqual(ws['week_end'], '2026-10-05')
         self.assertEqual(ws['accounts_changed'], 3)
         self.assertEqual(ws['new_entries'], 1)
         # LOA-1 net +200k (400k -> 600k), LOA-2 -180k, LOA-3 new +100k

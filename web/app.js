@@ -2306,16 +2306,17 @@
     if (y <= 1900) return '';
     const dateObj = new Date(Date.UTC(y, m, d));
     const pyWeekday = (dateObj.getUTCDay() + 6) % 7;
-    const daysSinceWed = (pyWeekday >= 2) ? (pyWeekday - 2) : (pyWeekday + 5);
-    const wedUtc = new Date(dateObj.getTime() - daysSinceWed * 86400000);
-    const midUtc = new Date(wedUtc.getTime() + 3 * 86400000);
-    const primaryYear = midUtc.getUTCFullYear();
-    // Same rule as loa_engine.get_work_week_info: WW-01 is the first week whose
-    // Saturday falls in the year, so every year starts at WW-01.
+    // Tuesday-to-Monday weeks (decision 2026-10-14), same rule as loa_engine.get_work_week_info:
+    // a week belongs to the year its Saturday falls in, and WW-01 is the first week
+    // whose Saturday is in that year, so every year starts at WW-01.
+    const daysSinceTue = (pyWeekday + 6) % 7;
+    const startUtc = new Date(dateObj.getTime() - daysSinceTue * 86400000);
+    const satUtc = new Date(startUtc.getTime() + 4 * 86400000);
+    const primaryYear = satUtc.getUTCFullYear();
     const jan1 = new Date(Date.UTC(primaryYear, 0, 1));
     const daysToFirstSaturday = (6 - jan1.getUTCDay() + 7) % 7;
-    const ww1Wed = new Date(jan1.getTime() + (daysToFirstSaturday - 3) * 86400000);
-    const weekNum = Math.floor((wedUtc.getTime() - ww1Wed.getTime()) / (7 * 86400000)) + 1;
+    const ww1Start = new Date(jan1.getTime() + (daysToFirstSaturday - 4) * 86400000);
+    const weekNum = Math.floor((startUtc.getTime() - ww1Start.getTime()) / (7 * 86400000)) + 1;
     return `WW-${String(weekNum).padStart(2, '0')}`;
   }
 
@@ -8827,7 +8828,7 @@ function renderLogsChunk(startIdx, count) {
     if (dom.dashModeFilterBanner) {
       dom.dashModeFilterBanner.classList.toggle('hidden', !hasModeFilter);
       const t = dashEl('dashModeFilterText');
-      if (t && hasModeFilter) t.innerHTML = `Showing <b>${escapeHtml(titleCaseStatus(data.selected_mode))}</b> accounts only — ${(data.total_records || 0).toLocaleString()} of ${(data.all_records_count || 0).toLocaleString()}`;
+      if (t && hasModeFilter) t.innerHTML = `Showing <b>${escapeHtml(String(data.selected_mode).toUpperCase())}</b> accounts only — ${(data.total_records || 0).toLocaleString()} of ${(data.all_records_count || 0).toLocaleString()}`;
     }
 
     // ---- This week KPIs ----
@@ -8836,17 +8837,37 @@ function renderLogsChunk(startIdx, count) {
       const edits = ws.field_edits || 0, adds = ws.new_entries || 0;
       dom.dashKpiWeeklyChangesSubtitle.innerHTML = `${edits.toLocaleString()} field edit${edits === 1 ? '' : 's'}` + (adds ? ` · <span class="ov-chip acc">${adds} new entr${adds === 1 ? 'y' : 'ies'}</span>` : '');
     }
+    // Money tiles count DIRECT SALE only, to match Payment progress (decision 2026-10-14).
+    // Secured lease is shown beside them; turned-over and rescinded totals are in the tooltip.
+    const gt = fb.group_totals || {};
+    const gAmt = (g, k) => Number((gt[g] || {})[k]) || 0;
+    const moneyTip = (k, label) => [
+      `Direct sale: ${formatPesoExact(gAmt('DIRECT_SALE', k))}`,
+      `Secured lease: ${formatPesoExact(gAmt('LEASE_DIRECT', k))}`,
+      `Turned over to partner – sale: ${formatPesoExact(gAmt('STP_SALE', k))}`,
+      `Turned over to partner – lease: ${formatPesoExact(gAmt('LEASE_STP', k))}`,
+      `Rescinded: ${formatPesoExact(gAmt('RESCINDED', k))}`,
+      ...(gAmt('OTHER', k) ? [`Mode not sale or lease: ${formatPesoExact(gAmt('OTHER', k))}`] : []),
+      `All accounts: ${formatPesoExact(Object.keys(gt).reduce((t, g) => t + gAmt(g, k), 0))}`,
+      '', `Only direct sale is in the ${label} figure.`
+    ].join('\n');
+    const directPaid = Number(fb.direct_sale_paid) || 0;
+    const directBal = Number(fb.direct_sale_balance) || 0;
+    const leasePaid = gAmt('LEASE_DIRECT', 'paid');
+    const leaseBal = gAmt('LEASE_DIRECT', 'balance');
     if (dom.dashKpiTotalDeductible) {
-      dom.dashKpiTotalDeductible.textContent = formatPesoCompact(data.total_deductible);
-      dom.dashKpiTotalDeductible.title = formatPesoExact(data.total_deductible);
+      dom.dashKpiTotalDeductible.textContent = formatPesoCompact(directPaid);
+      dom.dashKpiTotalDeductible.title = moneyTip('paid', 'payments deducted');
     }
-    if (dom.dashKpiDeductibleDelta) dom.dashKpiDeductibleDelta.innerHTML = `${deltaChip(ws.deductible_delta, { money: true, goodWhen: 'up' })}<span>this week</span>`;
+    if (dom.dashKpiDeductibleDelta) dom.dashKpiDeductibleDelta.innerHTML =
+      `${deltaChip(ws.direct_sale_deductible_delta, { money: true, goodWhen: 'up' })}<span>this week${leasePaid ? ` · + ${escapeHtml(formatPesoCompact(leasePaid))} secured lease paid` : ''}</span>`;
     if (dom.dashKpiTotalBalance) {
-      dom.dashKpiTotalBalance.textContent = formatPesoCompact(data.total_balance);
-      dom.dashKpiTotalBalance.title = formatPesoExact(data.total_balance);
+      dom.dashKpiTotalBalance.textContent = formatPesoCompact(directBal);
+      dom.dashKpiTotalBalance.title = moneyTip('balance', 'balance outstanding');
     }
     const balDelta = dashEl('dashKpiBalanceDelta');
-    if (balDelta) balDelta.innerHTML = `${deltaChip(ws.balance_delta, { money: true, goodWhen: 'down' })}<span>${(Number(data.overall_paid_percent_num) || 0).toFixed(1)}% paid overall</span>`;
+    if (balDelta) balDelta.innerHTML =
+      `${deltaChip(ws.direct_sale_balance_delta, { money: true, goodWhen: 'down' })}<span>${(Number(fb.direct_sale_paid_percent_num) || 0).toFixed(1)}% paid${leaseBal ? ` · secured lease rent remaining ${escapeHtml(formatPesoCompact(leaseBal))}` : ''}</span>`;
     const sec = dashEl('dashKpiSecured');
     if (sec) sec.textContent = (conv.secured_count || 0).toLocaleString();
     const secD = dashEl('dashKpiSecuredDelta');
@@ -8862,20 +8883,54 @@ function renderLogsChunk(startIdx, count) {
 
     // ---- Portfolio ----
     const pl = dashEl('dashPortfolioLabel');
-    if (pl) pl.textContent = `${hasModeFilter ? titleCaseStatus(data.selected_mode) + ' · ' : 'All '}${(data.total_records || 0).toLocaleString()} accounts${hasWeek ? ' · as of ' + shortWeek(curWeek) : ''}`;
+    if (pl) pl.textContent = `${hasModeFilter ? String(data.selected_mode).toUpperCase() + ' · ' : 'All '}${(data.total_records || 0).toLocaleString()} accounts${hasWeek ? ' · as of ' + shortWeek(curWeek) : ''}`;
 
-    if (dom.dashFinancePaidRatio) dom.dashFinancePaidRatio.textContent = `${(Number(data.overall_paid_percent_num) || 0).toFixed(1)}%`;
+    // Payment progress (decision 2026-10-13): Settled / Partially paid / Unpaid cover
+    // DIRECT SALE accounts only. STP sale (buyer owes the balance after turnover),
+    // leases (TCP = total rent over the term), rescinded and no-mode accounts are counted only.
+    const directCount = fb.direct_sale_count || 0;
+    const directPaidPct = Number(fb.direct_sale_paid_percent_num) || 0;
+    if (dom.dashFinancePaidRatio) dom.dashFinancePaidRatio.textContent = directCount ? `${directPaidPct.toFixed(1)}%` : '—';
     const finSub = dashEl('dashFinanceSub');
-    if (finSub) { finSub.textContent = `paid of ${formatPesoCompact(data.total_tcp)} contract value`; finSub.title = formatPesoExact(data.total_tcp); }
+    if (finSub) {
+      finSub.textContent = directCount
+        ? `of ${formatPesoCompact(fb.direct_sale_tcp || 0)} total contract price paid · direct sale, ${directCount.toLocaleString()} lots`
+        : 'no direct sale accounts in this view';
+      finSub.title = formatPesoExact(fb.direct_sale_tcp || 0);
+    }
     const finSegs = [
-      { name: 'Settled', count: fb.fully_paid_count || 0, pct: fb.fully_paid_percent_num || 0, cls: 'ov-c-pos' },
-      { name: 'Partially paid', count: fb.partially_paid_count || 0, pct: fb.partially_paid_percent_num || 0, cls: 'ov-c-mid' },
-      { name: 'Unpaid', count: fb.zero_paid_count || 0, pct: fb.zero_paid_percent_num || 0, cls: 'ov-c-none' }
+      { name: 'FULLY PAID (₱0 BALANCE)', count: fb.fully_paid_count || 0, pct: fb.fully_paid_percent_num || 0, cls: 'ov-c-pos' },
+      { name: 'PARTIALLY PAID (WITH BALANCE)', count: fb.partially_paid_count || 0, pct: fb.partially_paid_percent_num || 0, cls: 'ov-c-mid' },
+      { name: 'NO PAYMENT YET', count: fb.zero_paid_count || 0, pct: fb.zero_paid_percent_num || 0, cls: 'ov-c-none' }
     ];
-    renderStack(dashEl('dashFinanceStack'), finSegs, 'lots');
-    if (dom.dashFinanceBreakdownContainer) dom.dashFinanceBreakdownContainer.innerHTML = renderLegend(finSegs, 'lots');
+    renderStack(dashEl('dashFinanceStack'), directCount ? finSegs : [], 'lots');
+    // Leases (decision 2026-10-14): only SECURED LEASE is shown as UNPAID LEASE, a counted
+    // row below UNPAID, outside the paid/unpaid bar and headline %. Lease STP
+    // (SL - STP, SL - FROM LAND STP) sits in the not-tracked list.
+    const leaseCount = fb.lease_direct_count || 0;
+    const leaseRow = leaseCount
+      ? `<div class="ov-li" title="Lease TCP is total rent over the lease term; % paid reflects time elapsed, not arrears."><span class="ov-sw ov-c-hatch"></span><span class="ov-nm">SECURED LEASE – DIRECT (RENT BASIS)</span><span class="ov-ct" title="${escapeHtml(formatPesoExact(fb.lease_direct_paid || 0))} paid of ${escapeHtml(formatPesoExact(fb.lease_direct_tcp || 0))}">${leaseCount.toLocaleString()} lots · ${(Number(fb.lease_direct_paid_percent_num) || 0).toFixed(1)}% paid of ${formatPesoCompact(fb.lease_direct_tcp || 0)}</span></div>`
+      : '';
+    const untracked = [
+      { name: 'TURNED OVER TO PARTNER – SALE (BUYER PAYS BALANCE)', count: fb.stp_sale_count || 0,
+        tip: 'Turned over to partner: the buyer owes the balance after turnover, so these are not tracked as paid/unpaid.' },
+      { name: 'TURNED OVER TO PARTNER – LEASE', count: fb.lease_stp_count || 0,
+        tip: 'Lease turned over to partner: not tracked as paid/unpaid. Lease TCP is total rent over the lease term.' },
+      { name: 'RESCINDED CONTRACT', count: fb.rescinded_count || 0, tip: 'Rescinded accounts are not tracked as paid/unpaid.' },
+      { name: 'MODE NOT SALE OR LEASE', count: fb.other_count || 0, tip: 'Mode is blank or not a sale/lease.' }
+    ].filter(u => u.count > 0);
+    if (dom.dashFinanceBreakdownContainer) {
+      const tracked = directCount ? `<div class="ov-legend-sep ov-legend-sep-first">Direct sale payment status</div>` + renderLegend(finSegs, 'lots') : '';
+      const extra = untracked.length
+        ? `<div class="ov-legend-sep">Not tracked as paid/unpaid</div>` + untracked.map(u =>
+            `<div class="ov-li ov-li-muted" title="${escapeHtml(u.tip)}"><span class="ov-sw ov-c-hatch"></span><span class="ov-nm">${escapeHtml(u.name)}</span><span class="ov-ct">${u.count.toLocaleString()} lots</span></div>`).join('')
+        : '';
+      dom.dashFinanceBreakdownContainer.innerHTML = (tracked + (leaseRow ? `<div class="ov-legend-sep">Direct lease · not in % paid</div>` + leaseRow : '') + extra) || '<p class="ov-empty">No accounts in this view.</p>';
+    }
     if (dom.dashFinanceFooterStats) {
-      dom.dashFinanceFooterStats.innerHTML = `Avg <span title="${escapeHtml(fb.avg_tcp_formatted || '')}">${escapeHtml(formatPesoCompact(parseAmount(fb.avg_tcp_formatted)))}</span> per lot · <span title="${escapeHtml(fb.avg_paid_formatted || '')}">${escapeHtml(formatPesoCompact(parseAmount(fb.avg_paid_formatted)))}</span> paid`;
+      dom.dashFinanceFooterStats.innerHTML = directCount
+        ? `Direct sale average per lot: <span title="${escapeHtml(fb.avg_tcp_formatted || '')}">${escapeHtml(formatPesoCompact(parseAmount(fb.avg_tcp_formatted)))}</span> contract price · <span title="${escapeHtml(fb.avg_paid_formatted || '')}">${escapeHtml(formatPesoCompact(parseAmount(fb.avg_paid_formatted)))}</span> paid`
+        : 'STP sale, STP lease and rescinded accounts are counted only.';
     }
 
     if (dom.dashConvSecuredRatio) dom.dashConvSecuredRatio.textContent = `${(Number(conv.secured_percent_num) || 0).toFixed(1)}%`;
@@ -8897,19 +8952,26 @@ function renderLogsChunk(startIdx, count) {
         return r === 3 ? 'ov-c-acc' : r === 2 ? 'ov-c-warn' : 'ov-c-none';
       };
       dom.dashConvBarsContainer.innerHTML = breakdown.length
-        ? breakdown.map(b => `<div class="ov-li"><span class="ov-sw ${bucketCls(b.status)}"></span><span class="ov-nm">${escapeHtml(titleCaseStatus(b.status))}</span><span class="ov-ct">${(b.count || 0).toLocaleString()}</span></div>`).join('')
+        ? breakdown.map(b => `<div class="ov-li"><span class="ov-sw ${bucketCls(b.status)}"></span><span class="ov-nm">${escapeHtml(String(b.status || '').toUpperCase())}</span><span class="ov-ct">${(b.count || 0).toLocaleString()}</span></div>`).join('')
         : '<p class="ov-empty">No conversion statuses yet.</p>';
     }
 
     // ---- Accounts by mode (click to filter the whole page) ----
     if (dom.dashModeBarsContainer) {
-      const modes = data.modes_distribution || [];
+      const modes = (data.modes_distribution || []).slice();
+      // SECURED LEASE sits directly after SECURED SALE (requested 2026-10-14).
+      const modeName = (m) => String(m.mode).toUpperCase();
+      const leaseIdx = modes.findIndex(m => modeName(m) === 'SECURED LEASE');
+      if (leaseIdx > -1 && modes.some(m => modeName(m) === 'SECURED SALE')) {
+        const [lease] = modes.splice(leaseIdx, 1);
+        modes.splice(modes.findIndex(m => modeName(m) === 'SECURED SALE') + 1, 0, lease);
+      }
       if (dom.dashModeTotalLots) dom.dashModeTotalLots.textContent = hasModeFilter ? 'Click again to clear' : 'Click to filter';
       dom.dashModeBarsContainer.innerHTML = modes.length ? modes.slice(0, 8).map(m => {
         const active = Boolean(data.selected_mode && data.selected_mode.toUpperCase() === String(m.mode).toUpperCase());
         const muted = /TO BE IDENTIFIED|UNSET|NONE/.test(String(m.mode).toUpperCase());
         return `<button type="button" class="ov-mode ${active ? 'active' : ''} ${hasModeFilter && !active ? 'dim' : ''}" data-mode-name="${escapeHtml(m.mode)}" aria-pressed="${active}">
-            <span class="ov-mode-t"><b>${escapeHtml(titleCaseStatus(m.mode))}</b><span>${(m.count || 0).toLocaleString()} · ${escapeHtml(m.percent || '')}</span></span>
+            <span class="ov-mode-t"><b>${escapeHtml(String(m.mode || '').toUpperCase())}</b><span>${(m.count || 0).toLocaleString()} · ${escapeHtml(m.percent || '')}</span></span>
             <span class="ov-bar"><i class="${muted ? 'muted' : ''}" style="width:${Math.min(100, Number(m.percent_val) || 0)}%"></i></span>
           </button>`;
       }).join('') : '<p class="ov-empty">No mode data yet.</p>';

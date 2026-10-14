@@ -43,6 +43,7 @@ from loa_engine import (
     conversion_rank,
     format_calculated_percent,
     format_currency,
+    finance_mode_class,
     format_percent,
     get_work_week,
     get_work_week_info,
@@ -293,6 +294,28 @@ def _endorsed_date_value(record: Dict[str, Any]) -> str:
 def _record_mode(record: Dict[str, Any]) -> str:
     """Land Master Mode in upper case; an account with no Mode is grouped as 'BLANK'."""
     return str(record.get('new_mode') or record.get('Mode') or record.get('MODE') or '').strip().upper() or 'BLANK'
+
+
+def _payment_group(mode: Any) -> str:
+    """Payment group of a Mode (decision 2026-10-13/14).
+
+    DIRECT_SALE  SECURED SALE, SS - FROM ROW ...   tracked as paid/unpaid
+    STP_SALE     SS - STP, SS - FROM LAND STP      turned over to partner; buyer pays balance
+    LEASE_DIRECT SECURED LEASE                     rent basis
+    LEASE_STP    SL - STP, SL - FROM LAND STP      turned over to partner
+    RESCINDED    RESCINDED, SS - RESCINDED
+    OTHER        blank or not a sale/lease Mode
+    """
+    m = str(mode or '').strip().upper()
+    if 'RESCIND' in m:
+        return 'RESCINDED'
+    is_stp = bool(re.search(r'\bSTP\b', m)) or 'SOLD TO PARTNER' in m
+    mode_class = finance_mode_class(m)
+    if mode_class == 'LEASE':
+        return 'LEASE_STP' if is_stp else 'LEASE_DIRECT'
+    if mode_class == 'SALE':
+        return 'STP_SALE' if is_stp else 'DIRECT_SALE'
+    return 'OTHER'
 
 
 def _endorsed_is_blank(record: Dict[str, Any]) -> bool:
@@ -858,7 +881,7 @@ def derive_field_diffs_from_snapshots(
         return _audit_source_action(rec)
 
     def normalize_audit_week(rec: Dict[str, Any]) -> Dict[str, Any]:
-        """Audit work week is always derived from log time (Wednesday-Tuesday)."""
+        """Audit work week is always derived from log time (Tuesday-Monday)."""
         normalized = dict(rec)
         calculated = _audit_week_label(get_log_timestamp(normalized))
         ww = calculated or normalized.get('work_week') or normalized.get('Work Week') or normalized.get('cr63f_workweek')
@@ -4003,15 +4026,59 @@ class Api:
                 'is_active': (active_mode == m_name)
             })
 
-        # Financial Settlement Breakdown (for records)
+        # Financial Settlement Breakdown (decision 2026-10-13).
+        # Settled / Partially paid / Unpaid apply to DIRECT SALE accounts only:
+        # - STP SALE (SS - STP, SS - FROM LAND STP): the buyer owes the balance after
+        #   turnover, so it is counted but not tracked as paid/unpaid.
+        # - LEASE (SECURED LEASE, SL - ...): TCP is total rent over the lease term, so
+        #   % paid reflects time elapsed, not arrears; counted only ("LEASE - RENT BASIS").
+        # - RESCINDED and accounts with no sale/lease Mode: counted only.
         rec_count = len(records)
         fully_paid_count = 0
         partially_paid_count = 0
         zero_paid_count = 0
+        direct_tcp = 0.0
+        direct_ded = 0.0
+        stp_sale_count = 0
+        lease_direct_count = 0
+        lease_direct_tcp = 0.0
+        lease_direct_ded = 0.0
+        lease_stp_count = 0
+        rescinded_count = 0
+        other_count = 0
 
+        group_totals: Dict[str, Dict[str, float]] = {}
         for r in records:
+            mode = _record_mode(r)
+            g_tcp, g_ded = _record_tcp(r), _record_deductible(r)
+            gt = group_totals.setdefault(_payment_group(mode), {'count': 0, 'tcp': 0.0, 'paid': 0.0, 'balance': 0.0})
+            gt['count'] += 1
+            gt['tcp'] += g_tcp
+            gt['paid'] += g_ded
+            gt['balance'] += max(0.0, g_tcp - g_ded)
+            mode_class = finance_mode_class(mode)
+            is_stp = bool(re.search(r'\bSTP\b', mode)) or 'SOLD TO PARTNER' in mode
+            if 'RESCIND' in mode:
+                rescinded_count += 1
+                continue
+            if mode_class == 'LEASE':
+                if is_stp:
+                    lease_stp_count += 1
+                else:
+                    lease_direct_count += 1
+                    lease_direct_tcp += _record_tcp(r)
+                    lease_direct_ded += _record_deductible(r)
+                continue
+            if mode_class != 'SALE':
+                other_count += 1
+                continue
+            if is_stp:
+                stp_sale_count += 1
+                continue
             tcp_v = _record_tcp(r)
             ded_v = _record_deductible(r)
+            direct_tcp += tcp_v
+            direct_ded += ded_v
             bal_v = max(0.0, tcp_v - ded_v)
             # Same rule as % Paid: TCP 0 with a deductible counts as 100% paid.
             if (tcp_v > 0 and bal_v <= 0.01) or (tcp_v <= 0 and ded_v > 0):
@@ -4021,19 +4088,40 @@ class Api:
             else:
                 zero_paid_count += 1
 
-        avg_tcp = (total_tcp / rec_count) if rec_count > 0 else 0.0
-        avg_ded = (total_ded / rec_count) if rec_count > 0 else 0.0
+        direct_count = fully_paid_count + partially_paid_count + zero_paid_count
+        direct_paid_pct = ((direct_ded / direct_tcp) * 100) if direct_tcp > 0 else (100.0 if direct_ded > 0 else 0.0)
+        avg_tcp = (direct_tcp / direct_count) if direct_count > 0 else 0.0
+        avg_ded = (direct_ded / direct_count) if direct_count > 0 else 0.0
+
+        def _pct_of_direct(n: int) -> float:
+            return round(n / (direct_count or 1) * 100, 1)
 
         financial_breakdown = {
+            'direct_sale_count': direct_count,
+            'direct_sale_tcp': direct_tcp,
+            'direct_sale_paid': direct_ded,
+            'direct_sale_paid_percent_num': round(direct_paid_pct, 2),
             'fully_paid_count': fully_paid_count,
-            'fully_paid_percent': f"{(fully_paid_count / (rec_count or 1) * 100):.1f}%",
-            'fully_paid_percent_num': round(fully_paid_count / (rec_count or 1) * 100, 1),
+            'fully_paid_percent': f"{_pct_of_direct(fully_paid_count):.1f}%",
+            'fully_paid_percent_num': _pct_of_direct(fully_paid_count),
             'partially_paid_count': partially_paid_count,
-            'partially_paid_percent': f"{(partially_paid_count / (rec_count or 1) * 100):.1f}%",
-            'partially_paid_percent_num': round(partially_paid_count / (rec_count or 1) * 100, 1),
+            'partially_paid_percent': f"{_pct_of_direct(partially_paid_count):.1f}%",
+            'partially_paid_percent_num': _pct_of_direct(partially_paid_count),
             'zero_paid_count': zero_paid_count,
-            'zero_paid_percent': f"{(zero_paid_count / (rec_count or 1) * 100):.1f}%",
-            'zero_paid_percent_num': round(zero_paid_count / (rec_count or 1) * 100, 1),
+            'zero_paid_percent': f"{_pct_of_direct(zero_paid_count):.1f}%",
+            'zero_paid_percent_num': _pct_of_direct(zero_paid_count),
+            'stp_sale_count': stp_sale_count,
+            'lease_count': lease_direct_count + lease_stp_count,
+            'lease_direct_count': lease_direct_count,
+            'direct_sale_balance': group_totals.get('DIRECT_SALE', {}).get('balance', 0.0),
+            'lease_direct_balance': group_totals.get('LEASE_DIRECT', {}).get('balance', 0.0),
+            'group_totals': group_totals,
+            'lease_direct_tcp': lease_direct_tcp,
+            'lease_direct_paid': lease_direct_ded,
+            'lease_direct_paid_percent_num': round((lease_direct_ded / lease_direct_tcp * 100) if lease_direct_tcp > 0 else 0.0, 1),
+            'lease_stp_count': lease_stp_count,
+            'rescinded_count': rescinded_count,
+            'other_count': other_count,
             'avg_tcp_formatted': f"₱{format_currency(avg_tcp)}",
             'avg_paid_formatted': f"₱{format_currency(avg_ded)}",
         }
@@ -4086,8 +4174,8 @@ class Api:
         # (Using the previous week *with logs* made "vs WW-39" really mean WW-37.)
         previous_ww = ''
         if selected_ww in week_dates:
-            _, sel_wed, _ = get_work_week_info(week_dates[selected_ww])
-            previous_ww = get_work_week_label(sel_wed - timedelta(days=7))
+            _, sel_start, _ = get_work_week_info(week_dates[selected_ww])
+            previous_ww = get_work_week_label(sel_start - timedelta(days=7))
 
         def account_key(log: Dict[str, Any]) -> str:
             return str(log.get('cr63f_control1') or log.get('cr63f_control') or log.get('Control') or log.get('Control Number') or log.get('area_index') or log.get('cr63f_areaindex') or log.get('title_no') or log.get('cr63f_titleno') or '').strip().upper()
@@ -4238,6 +4326,8 @@ class Api:
         ded_delta = 0.0
         balance_delta = 0.0
         secured_delta = 0
+        direct_ded_delta = 0.0      # direct sale only (decision 2026-10-14)
+        direct_balance_delta = 0.0
 
         for log in week_logs:
             acct = account_key(log)
@@ -4290,6 +4380,9 @@ class Api:
                     tcp_delta += new_tcp
                     ded_delta += new_ded
                     balance_delta += max(0.0, new_tcp - new_ded)
+                    if _payment_group(entry['mode']) == 'DIRECT_SALE':
+                        direct_ded_delta += new_ded
+                        direct_balance_delta += max(0.0, new_tcp - new_ded)
                     if self._conversion_rank(log.get('cr63f_conversionstatus') or log.get('Conversion Status')) == 3:
                         secured_delta += 1
                 continue
@@ -4329,6 +4422,8 @@ class Api:
                     old_tcp, new_tcp = (fnum(tcp_f['old_value']), fnum(tcp_f['new_value'])) if tcp_f else (cur_tcp, cur_tcp)
                     old_ded, new_ded = (fnum(ded_f['old_value']), fnum(ded_f['new_value'])) if ded_f else (cur_ded, cur_ded)
                     balance_delta += max(0.0, new_tcp - new_ded) - max(0.0, old_tcp - old_ded)
+                    if _payment_group(entry['mode']) == 'DIRECT_SALE':
+                        direct_balance_delta += max(0.0, new_tcp - new_ded) - max(0.0, old_tcp - old_ded)
             changes = []
             for fld, f in entry['fields'].items():
                 if _norm_text_str(f['old_value']) == _norm_text_str(f['new_value']):
@@ -4340,6 +4435,8 @@ class Api:
                     elif kind == 'deductible':
                         diff = fnum(f['new_value']) - fnum(f['old_value'])
                         ded_delta += diff
+                        if _payment_group(entry['mode']) == 'DIRECT_SALE':
+                            direct_ded_delta += diff
                         if diff < -0.005:
                             needs_attention.append({
                                 'kind': 'payment_down', 'severity': 'high', 'account': acct,
@@ -4398,8 +4495,8 @@ class Api:
         if is_single_week:
             any_dt = next((log_datetime(l) for l in week_logs if log_datetime(l)), None)
             if any_dt:
-                _, wed, tue = get_work_week_info(any_dt)
-                week_start, week_end = wed.strftime('%Y-%m-%d'), tue.strftime('%Y-%m-%d')
+                _, wk_start, wk_end = get_work_week_info(any_dt)  # Tuesday .. Monday
+                week_start, week_end = wk_start.strftime('%Y-%m-%d'), wk_end.strftime('%Y-%m-%d')
 
         return {
             'week_summary': {
@@ -4413,6 +4510,8 @@ class Api:
                 'tcp_delta': round(tcp_delta, 2),
                 'deductible_delta': round(ded_delta, 2),
                 'balance_delta': round(balance_delta, 2),
+                'direct_sale_deductible_delta': round(direct_ded_delta, 2),
+                'direct_sale_balance_delta': round(direct_balance_delta, 2),
                 'secured_delta': secured_delta,
                 'source_counts': {
                     k: sum(1 for a in changed_accounts if k in a['sources'])

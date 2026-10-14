@@ -226,9 +226,10 @@ class TestOverviewNumbers(unittest.TestCase):
     def test_portfolio_balance_is_per_account(self):
         app = _api()
         app.loa_records = [
-            {'cr63f_totalcontractprice': '100', 'cr63f_totalpaymentdeductibletotcp': '150'},  # overpaid: 0
-            {'cr63f_totalcontractprice': '100', 'cr63f_totalpaymentdeductibletotcp': '20'},   # 80
-            {'cr63f_totalcontractprice': '0', 'cr63f_totalpaymentdeductibletotcp': '5'},      # 100% paid
+            # Direct sale Mode: paid/unpaid counts cover direct sale only (decision 2026-10-13).
+            {'new_mode': 'SECURED SALE', 'cr63f_totalcontractprice': '100', 'cr63f_totalpaymentdeductibletotcp': '150'},  # overpaid: 0
+            {'new_mode': 'SECURED SALE', 'cr63f_totalcontractprice': '100', 'cr63f_totalpaymentdeductibletotcp': '20'},   # 80
+            {'new_mode': 'SECURED SALE', 'cr63f_totalcontractprice': '0', 'cr63f_totalpaymentdeductibletotcp': '5'},      # 100% paid
         ]
         res = app.get_dashboard_analytics()
         self.assertEqual(res['total_balance'], 80.0)

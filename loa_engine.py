@@ -246,31 +246,31 @@ def format_calculated_percent(total_contract_price: Any, payment_deductible: Any
 
 
 def get_work_week_info(d: datetime) -> Tuple[str, datetime, datetime]:
-    """Calculate Wednesday-to-Tuesday corporate work week (WW-01 to WW-52/53) and its start/end dates.
+    """Calculate Tuesday-to-Monday corporate work week (WW-01 to WW-52/53) and its start/end dates.
 
-    A week belongs to the year its Saturday falls in, and WW-01 is the first
-    Wednesday-to-Tuesday week whose Saturday is in that year. Every year starts
-    at WW-01 and has 52 or 53 weeks.
+    Decision 2026-10-14: weeks run Tuesday to the following Monday (they were
+    Wednesday to Tuesday). A week belongs to the year its Saturday falls in, and
+    WW-01 is the first Tuesday-to-Monday week whose Saturday is in that year, so
+    week numbers are unchanged by the switch; only Tuesdays move to the next week.
+    Every year starts at WW-01 and has 52 or 53 weeks.
+
+    Returns (label, week_start_tuesday, week_end_monday).
     """
     w = d.weekday()  # 0=Mon, 1=Tue, 2=Wed, 3=Thu, 4=Fri, 5=Sat, 6=Sun
-    days_since_wed = (w - 2) if w >= 2 else (w + 5)
-    wed = d - timedelta(days=days_since_wed)
-    tue = wed + timedelta(days=6)
+    days_since_tue = (w - 1) % 7
+    start = d - timedelta(days=days_since_tue)
+    end = start + timedelta(days=6)
 
-    mid = wed + timedelta(days=3)  # Saturday midpoint determines the primary year
-    y = mid.year
+    saturday = start + timedelta(days=4)  # the week's Saturday decides its year
+    y = saturday.year
 
-    # WW-01 is the first week whose Saturday falls in year y, so every year
-    # starts at WW-01. (Counting from the Wednesday on/before Jan 1 skipped
-    # WW-01 whenever Jan 1 was a Sun/Mon/Tue, e.g. 2023, 2024, 2029, 2030:
-    # that week belongs to the previous year, so the year began at WW-02.)
-    jan1 = datetime(y, 1, 1, tzinfo=wed.tzinfo)
+    jan1 = datetime(y, 1, 1, tzinfo=start.tzinfo)
     first_saturday = jan1 + timedelta(days=(5 - jan1.weekday()) % 7)
-    ww1_wed = first_saturday - timedelta(days=3)
+    ww1_start = first_saturday - timedelta(days=4)
 
-    week_num = int((wed.replace(hour=0, minute=0, second=0, microsecond=0) - ww1_wed).days // 7) + 1
+    week_num = int((start.replace(hour=0, minute=0, second=0, microsecond=0) - ww1_start).days // 7) + 1
 
-    return f"WW-{week_num:02d}", wed, tue
+    return f"WW-{week_num:02d}", start, end
 
 
 def get_work_week_label(d: datetime) -> str:
@@ -278,14 +278,14 @@ def get_work_week_label(d: datetime) -> str:
 
     The year is the year the week's Saturday falls in (the same rule that
     assigns the week number), not the calendar year of ``d``. Using the
-    calendar year merged Dec 29-31 2027 (WW-01 of 2028) into Jan 2027's WW-01.
+    calendar year merged Dec 28-31 2027 (WW-01 of 2028) into Jan 2027's WW-01.
     """
-    ww, wed, _ = get_work_week_info(d)
-    return f"{(wed + timedelta(days=3)).year} · {ww}"
+    ww, start, _ = get_work_week_info(d)
+    return f"{(start + timedelta(days=4)).year} · {ww}"
 
 
 def get_work_week(date_value: Any) -> str:
-    """Derive Wednesday-to-Tuesday Work Week (e.g. WW-38) from date string or datetime."""
+    """Derive Tuesday-to-Monday Work Week (e.g. WW-38) from date string or datetime."""
     if not date_value:
         return ""
     if isinstance(date_value, datetime):
