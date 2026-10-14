@@ -315,6 +315,8 @@
     kpiTotalTcp: document.getElementById('kpiTotalTcp'),
     kpiTotalDeductible: document.getElementById('kpiTotalDeductible'),
     kpiTotalBalance: document.getElementById('kpiTotalBalance'),
+    kpiTotalHectares: document.getElementById('kpiTotalHectares'),
+    kpiHectaresNote: document.getElementById('kpiHectaresNote'),
     kpiModeActiveBadge: document.getElementById('kpiModeActiveBadge'),
     modeFilter: document.getElementById('modeFilter'),
     modeFilterPanel: document.getElementById('modeFilterPanel'),
@@ -2973,6 +2975,182 @@
   }
 
   // ==================== RECORDS HUB ====================
+  // ==================== MULTI-SELECT FILTER ====================
+  // Land Master Type and Mode filters (2026-10-14). Nothing ticked means all. Each
+  // option shows how many accounts it matches in the current view.
+  class MultiSelectFilter {
+    constructor(host, opts) {
+      this.host = host;
+      this.allLabel = opts.allLabel;
+      this.noun = opts.noun;
+      this.label = opts.label;
+      this.onChange = opts.onChange;
+      this.selected = new Set();
+      this.options = [];
+      this.allCount = 0;
+      this.isOpen = false;
+
+      host.innerHTML = '';
+      this.button = document.createElement('button');
+      this.button.type = 'button';
+      this.button.className = 'select multi-filter-btn';
+      this.button.setAttribute('aria-haspopup', 'true');
+      this.button.setAttribute('aria-expanded', 'false');
+      this.button.setAttribute('aria-label', this.label);
+      this.panel = document.createElement('div');
+      this.panel.className = 'multi-filter-panel';
+      this.panel.hidden = true;
+      host.append(this.button, this.panel);
+
+      this.button.addEventListener('click', () => (this.isOpen ? this.close() : this.open()));
+      this.panel.addEventListener('change', (e) => {
+        const box = e.target.closest('input[type="checkbox"]');
+        if (!box) return;
+        if (box.checked) this.selected.add(box.value); else this.selected.delete(box.value);
+        this.emit();
+      });
+      this.panel.addEventListener('click', (e) => {
+        if (e.target.closest('.multi-filter-clear')) {
+          this.selected.clear();
+          this.emit();
+        }
+      });
+      document.addEventListener('mousedown', (e) => {
+        if (this.isOpen && !this.host.contains(e.target)) this.close();
+      });
+      document.addEventListener('keydown', (e) => {
+        if (!this.isOpen) return;
+        if (e.key === 'Escape') {
+          this.close();
+          this.button.focus();
+        } else if (e.key === 'Tab') {
+          // Close once keyboard focus has actually left the filter.
+          setTimeout(() => { if (!this.host.contains(document.activeElement)) this.close(); }, 0);
+        }
+      });
+      window.addEventListener('resize', () => this.close());
+      window.addEventListener('scroll', (e) => {
+        if (this.isOpen && !this.panel.contains(e.target)) this.close();
+      }, true);
+      this.renderButton();
+      this.renderPanel();
+    }
+
+    values() { return Array.from(this.selected); }
+
+    selectedLabels() { return this.options.filter(o => this.selected.has(o.value)).map(o => o.label); }
+
+    setOptions(options, allCount) {
+      this.options = options;
+      this.allCount = allCount;
+      const keys = new Set(options.map(o => o.value));
+      Array.from(this.selected).forEach(v => { if (!keys.has(v)) this.selected.delete(v); });
+      this.renderButton();
+      this.renderPanel();
+    }
+
+    setSelected(values) {
+      this.selected = new Set(values);
+      this.renderButton();
+      this.renderPanel();
+    }
+
+    emit() {
+      this.renderButton();
+      this.renderPanel();
+      this.onChange();
+    }
+
+    renderButton() {
+      const n = this.selected.size;
+      let text;
+      if (n === 0) {
+        text = `${this.allLabel} (${this.allCount.toLocaleString()})`;
+      } else if (n === 1) {
+        const opt = this.options.find(o => this.selected.has(o.value));
+        text = opt ? `${opt.label} (${opt.count.toLocaleString()})` : this.values()[0];
+      } else {
+        const total = this.options.filter(o => this.selected.has(o.value)).reduce((sum, o) => sum + o.count, 0);
+        text = `${n} selected (${total.toLocaleString()})`;
+      }
+      this.button.innerHTML = `<span class="multi-filter-text">${escapeHtml(text)}</span><span class="multi-filter-caret" aria-hidden="true">▾</span>`;
+      this.button.classList.toggle('active', n > 0);
+      if (n > 1) this.button.dataset.tip = this.selectedLabels().join('\n');
+      else this.button.removeAttribute('data-tip');
+    }
+
+    renderPanel() {
+      // Keep keyboard focus on the same option when the list is rebuilt.
+      const active = document.activeElement;
+      const focusVal = active && this.panel.contains(active) && active.type === 'checkbox' ? active.value : null;
+      const n = this.selected.size;
+      const rows = this.options.map(o =>
+        `<label class="multi-filter-row"><input type="checkbox" value="${escapeHtml(o.value)}"${this.selected.has(o.value) ? ' checked' : ''}>`
+        + `<span class="multi-filter-name">${escapeHtml(o.label)}</span>`
+        + `<span class="multi-filter-count">${o.count.toLocaleString()}</span></label>`).join('');
+      this.panel.innerHTML =
+        `<div class="multi-filter-head"><span>${n ? `${n} selected` : `Showing all ${this.noun}`}</span>`
+        + `${n ? '<button type="button" class="multi-filter-clear">Show all</button>' : ''}</div>`
+        + `<div class="multi-filter-list">${rows || `<div class="multi-filter-empty">No ${this.noun} in this view</div>`}</div>`;
+      if (focusVal !== null) {
+        const box = Array.from(this.panel.querySelectorAll('input[type="checkbox"]')).find(i => i.value === focusVal);
+        if (box) box.focus({ preventScroll: true });
+      }
+    }
+
+    open() {
+      this.isOpen = true;
+      this.panel.hidden = false;
+      this.button.setAttribute('aria-expanded', 'true');
+      this.host.classList.add('open');
+      this.position();
+    }
+
+    close() {
+      if (!this.isOpen) return;
+      this.isOpen = false;
+      this.panel.hidden = true;
+      this.button.setAttribute('aria-expanded', 'false');
+      this.host.classList.remove('open');
+    }
+
+    position() {
+      // Fixed, so the panel is not clipped by the toolbar or its card.
+      const r = this.button.getBoundingClientRect();
+      const vw = document.documentElement.clientWidth;
+      const vh = document.documentElement.clientHeight;
+      this.panel.style.minWidth = `${Math.round(Math.max(r.width, 230))}px`;
+      const pw = this.panel.offsetWidth;
+      const ph = this.panel.offsetHeight;
+      const left = Math.max(8, Math.min(r.left, vw - pw - 8));
+      let top = r.bottom + 4;
+      if (top + ph > vh - 8 && r.top - 4 - ph >= 8) top = r.top - 4 - ph;
+      this.panel.style.left = `${Math.round(left)}px`;
+      this.panel.style.top = `${Math.round(top)}px`;
+    }
+  }
+
+  let typeFilterUI = null;
+  let modeFilterUI = null;
+  function getTypeFilter() {
+    if (!typeFilterUI) {
+      typeFilterUI = new MultiSelectFilter(dom.typeFilter, {
+        allLabel: 'All Types', noun: 'types', label: 'Filter Land Master by type',
+        onChange: () => { populateModeFilter(state.records); filterAndRenderRecords(); },
+      });
+    }
+    return typeFilterUI;
+  }
+  function getModeFilter() {
+    if (!modeFilterUI) {
+      modeFilterUI = new MultiSelectFilter(dom.modeFilterPanel, {
+        allLabel: 'All Modes', noun: 'modes', label: 'Filter Land Master by mode',
+        onChange: () => { populateTypeFilter(state.records); updateModeBadge(); filterAndRenderRecords(); },
+      });
+    }
+    return modeFilterUI;
+  }
+
   function setupRecordsView() {
     setupColumnPicker();
 
@@ -2981,31 +3159,8 @@
       searchDebounce = setTimeout(filterAndRenderRecords, 120);
     });
 
-    dom.typeFilter.addEventListener('change', () => {
-      populateModeFilter(state.records);
-      filterAndRenderRecords();
-    });
-
-    if (dom.modeFilter) {
-      dom.modeFilter.addEventListener('change', () => {
-        populateTypeFilter(state.records);
-        if (dom.modeFilterPanel) dom.modeFilterPanel.value = dom.modeFilter.value;
-        if (dom.kpiModeActiveBadge) {
-          dom.kpiModeActiveBadge.textContent = dom.modeFilter.value === 'ALL' ? 'ALL MODES' : dom.modeFilter.value;
-        }
-        filterAndRenderRecords();
-      });
-    }
-
-    if (dom.modeFilterPanel) {
-      dom.modeFilterPanel.addEventListener('change', () => {
-        populateTypeFilter(state.records);
-        if (dom.kpiModeActiveBadge) {
-          dom.kpiModeActiveBadge.textContent = dom.modeFilterPanel.value === 'ALL' ? 'ALL MODES' : dom.modeFilterPanel.value;
-        }
-        filterAndRenderRecords();
-      });
-    }
+    getTypeFilter();
+    getModeFilter();
 
     if (dom.btnUpdateFromFinance) {
       dom.btnUpdateFromFinance.addEventListener('click', updateRecordsFromFinance);
@@ -3015,10 +3170,9 @@
     if (dom.btnClearFilters) {
       dom.btnClearFilters.addEventListener('click', () => {
         dom.searchInput.value = '';
-        dom.typeFilter.value = 'ALL';
-        if (dom.modeFilter) dom.modeFilter.value = 'ALL';
-        if (dom.modeFilterPanel) dom.modeFilterPanel.value = 'ALL';
-        if (dom.kpiModeActiveBadge) dom.kpiModeActiveBadge.textContent = 'ALL MODES';
+        getTypeFilter().setSelected([]);
+        getModeFilter().setSelected([]);
+        updateModeBadge();
         state.columnFilters = {};
         state.columnFiltersOpen = {};
         populateTypeFilter(state.records);
@@ -3090,8 +3244,8 @@
             <span>${escapeHtml(col.label)}</span>
           </label>
           <div class="col-reorder-btns">
-            <button type="button" class="col-reorder-btn" data-move-up="${col.key}" ${isFirst ? 'disabled' : ''} title="Move left / earlier">◄</button>
-            <button type="button" class="col-reorder-btn" data-move-down="${col.key}" ${isLast ? 'disabled' : ''} title="Move right / later">►</button>
+            <button type="button" class="col-reorder-btn" data-move-up="${col.key}" ${isFirst ? 'disabled' : ''} title="Move left">◄</button>
+            <button type="button" class="col-reorder-btn" data-move-down="${col.key}" ${isLast ? 'disabled' : ''} title="Move right">►</button>
           </div>
         </div>
       `;
@@ -3229,26 +3383,17 @@
   }
 
   function populateTypeFilter(records) {
-    const selectedMode = normalizeModeFilterValue((dom.modeFilterPanel || dom.modeFilter)?.value || 'ALL');
+    const modeSel = getModeFilter().values();
     const typeCounts = new Map();
     (records || []).forEach(r => {
       const rowMode = normalizeModeFilterValue(r['new_mode'] || r['Mode'] || r['MODE'] || r['cr63f_mode'] || '');
-      if (selectedMode !== 'ALL' && rowMode !== selectedMode) return;
+      if (modeSel.length && !modeSel.includes(rowMode)) return;
       const type = String(r['Type'] || r['TYPE'] || r['cr63f_type'] || '').trim().toUpperCase();
       if (type) typeCounts.set(type, (typeCounts.get(type) || 0) + 1);
     });
-
-    const currentVal = String(dom.typeFilter.value || 'ALL').trim().toUpperCase();
-    let html = `<option value="ALL">All Types (${Array.from(typeCounts.values()).reduce((sum, n) => sum + n, 0).toLocaleString()})</option>`;
-    Array.from(typeCounts.keys()).sort().forEach(t => {
-      html += `<option value="${escapeHtml(t)}">${escapeHtml(t)} (${typeCounts.get(t).toLocaleString()})</option>`;
-    });
-    dom.typeFilter.innerHTML = html;
-    if (typeCounts.has(currentVal)) {
-      dom.typeFilter.value = currentVal;
-    } else {
-      dom.typeFilter.value = 'ALL';
-    }
+    const options = Array.from(typeCounts.keys()).sort().map(t => ({ value: t, label: t, count: typeCounts.get(t) }));
+    const total = options.reduce((sum, o) => sum + o.count, 0);
+    getTypeFilter().setOptions(options, total);
 
     if (dom.fType && dom.fType.tagName === 'SELECT') {
       setSelectOptions(dom.fType, TYPE_OPTIONS, dom.fType.value || 'LAND');
@@ -3256,12 +3401,12 @@
   }
 
   function populateModeFilter(records) {
-    const selectedType = String(dom.typeFilter ? dom.typeFilter.value : 'ALL').trim().toUpperCase();
+    const typeSel = getTypeFilter().values();
     const modeLabels = new Map();
     const modeCounts = new Map();
     const modeScopeRows = (records || []).filter(r => {
       const rowType = String(r['Type'] || r['TYPE'] || r['cr63f_type'] || '').trim().toUpperCase();
-      return selectedType === 'ALL' || rowType === selectedType;
+      return !typeSel.length || typeSel.includes(rowType);
     });
     MODES.forEach(mode => {
       const key = normalizeModeFilterValue(mode);
@@ -3277,28 +3422,19 @@
       modeCounts.set(key, (modeCounts.get(key) || 0) + 1);
     });
 
-    const currentVal = normalizeModeFilterValue((dom.modeFilterPanel || dom.modeFilter)?.value || 'ALL');
-    let html = `<option value="ALL">All Modes (${modeScopeRows.length.toLocaleString()})</option>`;
-    const availableModes = Array.from(modeLabels.keys()).filter(key => (modeCounts.get(key) || 0) > 0);
-    availableModes.forEach(key => {
-      const label = modeLabels.get(key);
-      html += `<option value="${escapeHtml(key)}">${escapeHtml(label)} (${modeCounts.get(key).toLocaleString()})</option>`;
-    });
-    const selectedMode = availableModes.includes(currentVal) ? currentVal : 'ALL';
+    const options = Array.from(modeLabels.keys())
+      .filter(key => (modeCounts.get(key) || 0) > 0)
+      .map(key => ({ value: key, label: modeLabels.get(key), count: modeCounts.get(key) }));
+    getModeFilter().setOptions(options, modeScopeRows.length);
+    updateModeBadge();
+  }
 
-    if (dom.modeFilter) {
-      dom.modeFilter.innerHTML = html;
-      dom.modeFilter.value = selectedMode;
-    }
-    if (dom.modeFilterPanel) {
-      dom.modeFilterPanel.innerHTML = html;
-      dom.modeFilterPanel.value = selectedMode;
-    }
-
-    const activeVal = (dom.modeFilterPanel || dom.modeFilter)?.value || 'ALL';
-    if (dom.kpiModeActiveBadge) {
-      dom.kpiModeActiveBadge.textContent = activeVal === 'ALL' ? 'ALL MODES' : activeVal;
-    }
+  function updateModeBadge() {
+    if (!dom.kpiModeActiveBadge) return;
+    const labels = getModeFilter().selectedLabels();
+    dom.kpiModeActiveBadge.textContent = labels.length === 0
+      ? 'ALL MODES'
+      : labels.length === 1 ? String(labels[0]).toUpperCase() : `${labels.length} MODES`;
   }
 
   function renderTableHead() {
@@ -3325,7 +3461,7 @@
             <div class="th-header-box" style="justify-content: center; align-items: center;">
               <span class="th-col-name" style="text-align: center;">${escapeHtml(col.label)}</span>
             </div>
-            <div class="th-bottom-resizer" title="Drag to adjust header height"></div>
+            <div class="th-bottom-resizer" title="Drag to resize the header"></div>
           </th>`;
         return;
       }
@@ -3339,7 +3475,7 @@
                   <path d="M16 12V4h1V2H7v2h1v8l-2 2v2h5.2v6h1.6v-6H18v-2l-2-2z"/>
                 </svg>
               </button>
-              <button type="button" class="th-sort-wrap" data-sort-col="${col.key}" aria-label="Sort by ${escapeHtml(col.label)}" title="Click to sort by ${escapeHtml(col.label)} (Drag to rearrange)">
+              <button type="button" class="th-sort-wrap" data-sort-col="${col.key}" aria-label="Sort by ${escapeHtml(col.label)}" title="Sort by ${escapeHtml(col.label)} · drag to reorder">
                 <span class="th-col-name">${escapeHtml(col.label)}</span>
                 <span class="th-sort-icon ${isSorted ? 'active' : ''}" aria-hidden="true">${sortIcon}</span>
               </button>
@@ -3351,8 +3487,8 @@
               <input class="th-filter-input" data-filter-col="${col.key}" aria-label="Filter ${escapeHtml(col.label)} column" autocomplete="off" value="${escapeHtml(state.columnFilters[col.key] || '')}" placeholder="Filter ${escapeHtml(col.label)}…" />
             </div>
           </div>
-          <div class="th-resizer" data-col-key="${col.key}" title="Drag column width (Double-click to reset)"></div>
-          <div class="th-bottom-resizer" title="Drag to adjust header height"></div>
+          <div class="th-resizer" data-col-key="${col.key}" title="Drag to resize · double-click to reset"></div>
+          <div class="th-bottom-resizer" title="Drag to resize the header"></div>
         </th>
       `;
     });
@@ -3652,8 +3788,8 @@
     // Comma-separated search (decision 2026-10-14): "TST-ABC-000101, TST-248" shows the
     // records that match ANY of the terms. A single term works as before.
     const searchTerms = q.split(',').map(t => t.trim()).filter(Boolean);
-    const typeFilt = dom.typeFilter.value;
-    const modeFilt = (dom.modeFilterPanel || dom.modeFilter)?.value || 'ALL';
+    const typeSel = getTypeFilter().values();
+    const modeSel = getModeFilter().values();
     const colFilterKeys = Object.keys(state.columnFilters).filter(k => !!state.columnFilters[k]);
 
     state.filteredRecords = state.records.filter(r => {
@@ -3668,10 +3804,10 @@
       }
 
       const rType = String(r['TYPE'] || r['Type'] || r['cr63f_type'] || '').trim().toUpperCase();
-      if (typeFilt !== 'ALL' && rType !== typeFilt) return false;
+      if (typeSel.length && !typeSel.includes(rType)) return false;
 
       const rMode = normalizeModeFilterValue(r['new_mode'] || r['Mode'] || r['MODE'] || r['cr63f_mode'] || '');
-      if (modeFilt !== 'ALL' && rMode !== normalizeModeFilterValue(modeFilt)) return false;
+      if (modeSel.length && !modeSel.includes(rMode)) return false;
 
       for (const colKey of colFilterKeys) {
         const query = state.columnFilters[colKey];
@@ -3824,13 +3960,13 @@
         } else if (col.key === '__action') {
           td.className = `${td.className} col-action`.trim();
           td.innerHTML = `
-            <button type="button" class="btn xs ghost rc-edit-btn" onclick="window.openEditEntry('${id}')" aria-label="Edit account" title="Edit account in the form">
+            <button type="button" class="btn xs ghost rc-edit-btn" onclick="window.openEditEntry('${id}')" aria-label="Edit account" title="Edit account">
               <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M12 20h9"></path>
                 <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"></path>
               </svg>
             </button>
-            <button type="button" class="btn xs ghost danger rc-del-btn" onclick="window.deleteRecord('${id}')" aria-label="Delete Land Master record" title="Delete record from Dataverse">
+            <button type="button" class="btn xs ghost danger rc-del-btn" onclick="window.deleteRecord('${id}')" aria-label="Delete Land Master record" title="Delete record">
               <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M4 7h16"></path>
                 <path d="M9 7V4h6v3"></path>
@@ -4154,6 +4290,8 @@
     let sumTcp = 0;
     let sumDed = 0;
     let sumBal = 0;
+    let sumHa = 0;
+    let noArea = 0;
     const shownRecords = state.filteredRecords !== undefined ? state.filteredRecords : state.records;
     const stagedOf = (r) => (state.stagedEdits && r.__id && state.stagedEdits[r.__id]) ? state.stagedEdits[r.__id] : {};
     // Same groups as the Overview (app.py _payment_group). Decision 2026-10-14:
@@ -4181,39 +4319,54 @@
       // Same rule as the Overview: each account's own balance, clamped at 0,
       // calculated from TCP and Deductible (a stale stored Balance is ignored).
       const bal = Math.max(0, tcp - ded);
+      const areaRaw = String(staged['cr63f_lotareaha'] ?? staged['Lot Area (Ha)'] ?? r['cr63f_lotareaha'] ?? r['Lot Area (Ha)'] ?? r['Lot Area (ha)'] ?? r['Lot Area'] ?? '').trim();
+      const ha = areaRaw ? parseAmount(areaRaw) : 0;
+      if (!areaRaw || !ha) noArea++;
+      sumHa += ha;
       sumTcp += tcp;
       sumDed += ded;
       if (BALANCE_GROUPS.includes(g)) sumBal += bal;
-      const t = groups[g] || (groups[g] = { count: 0, tcp: 0, ded: 0, bal: 0 });
-      t.count++; t.tcp += tcp; t.ded += ded; t.bal += bal;
+      const t = groups[g] || (groups[g] = { count: 0, tcp: 0, ded: 0, bal: 0, ha: 0 });
+      t.count++; t.tcp += tcp; t.ded += ded; t.bal += bal; t.ha += ha;
     });
 
     if (dom.kpiRecordCount) dom.kpiRecordCount.textContent = shownRecords.length.toLocaleString();
     if (dom.kpiTotalTcp) dom.kpiTotalTcp.textContent = formatPrice(sumTcp) || '₱0.00';
     if (dom.kpiTotalDeductible) dom.kpiTotalDeductible.textContent = formatPrice(sumDed) || '₱0.00';
     if (dom.kpiTotalBalance) dom.kpiTotalBalance.textContent = formatPrice(sumBal) || '₱0.00';
+    const hectares = (v) => `${v.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 })} ha`;
+    if (dom.kpiTotalHectares) dom.kpiTotalHectares.textContent = hectares(sumHa);
+    if (dom.kpiHectaresNote) {
+      dom.kpiHectaresNote.textContent = noArea
+        ? `${noArea.toLocaleString()} account${noArea === 1 ? '' : 's'} with no lot area`
+        : 'Every account shown';
+    }
 
     const GROUP_LABELS = [
-      ['DIRECT_SALE', 'Direct sale'],
+      ['DIRECT_SALE', 'Secured sale'],
       ['LEASE', 'Secured lease'],
-      ['STP_SALE', 'Turned over to partner – sale'],
-      ['LEASE_STP', 'Turned over to partner – lease'],
+      ['STP_SALE', 'Turned over – sale'],
+      ['LEASE_STP', 'Turned over – lease'],
       ['NON_SP', 'Non-SP'],
       ['RESCINDED', 'Rescinded'],
-      ['OTHER', 'Mode not sale or lease']
+      ['OTHER', 'No sale or lease mode']
     ];
     const present = GROUP_LABELS.filter(([g]) => groups[g] && groups[g].count);
     const money = (v) => formatPrice(v) || '₱0.00';
     const breakdown = (key, total, counted, footer) => present.map(([g, label]) =>
       `${label}: ${money(groups[g][key])}${counted.includes(g) ? '' : ' (not counted)'}`)
-      .concat([`Total: ${money(total)}`, '', footer]).join('\n');
+      .concat([`Total: ${money(total)}`]).concat(footer ? ['', footer] : []).join('\n');
     const setTip = (el, text) => { const card = el && el.closest('.kpi-card'); if (card) card.title = text; };
     const all = present.map(([g]) => g);
-    setTip(dom.kpiRecordCount, present.map(([g, label]) => `${label}: ${groups[g].count.toLocaleString()}`).join('\n'));
-    setTip(dom.kpiTotalTcp, breakdown('tcp', sumTcp, all, 'Every account shown is counted.'));
-    setTip(dom.kpiTotalDeductible, breakdown('ded', sumDed, all, 'Every payment made is counted, including payments made before turnover to partner.'));
+    setTip(dom.kpiRecordCount, present.map(([g, label]) => `${label}: ${groups[g].count.toLocaleString()}`)
+      .concat([`Total: ${shownRecords.length.toLocaleString()}`]).join('\n'));
+    setTip(dom.kpiTotalHectares, present.map(([g, label]) => `${label}: ${hectares(groups[g].ha)}`)
+      .concat([`Total: ${hectares(sumHa)}`])
+      .concat(noArea ? ['', `${noArea.toLocaleString()} account${noArea === 1 ? ' has' : 's have'} no lot area.`] : []).join('\n'));
+    setTip(dom.kpiTotalTcp, breakdown('tcp', sumTcp, all, ''));
+    setTip(dom.kpiTotalDeductible, breakdown('ded', sumDed, all, 'Includes payments made before turnover to partner.'));
     setTip(dom.kpiTotalBalance, breakdown('bal', sumBal, BALANCE_GROUPS,
-      'Only direct sale and secured lease balances are yours to pay. Turned-over balances are the partner\'s; non-SP and rescinded balances are not counted.'));
+      'Grey rows are not counted: only secured sale and secured lease balances are yours to pay.'));
 
     const exclNote = document.getElementById('kpiExcludedNote');
     if (exclNote) {
@@ -4223,13 +4376,10 @@
       if (groups.NON_SP?.count) parts.push(`${groups.NON_SP.count.toLocaleString()} non-SP`);
       if (groups.RESCINDED?.count) parts.push(`${groups.RESCINDED.count.toLocaleString()} rescinded`);
       if (groups.OTHER?.count) parts.push(`${groups.OTHER.count.toLocaleString()} with no sale/lease Mode`);
-      exclNote.textContent = parts.length ? `Balance excludes ${parts.join(' and ')}` : 'Balance: direct sale and secured lease';
+      exclNote.textContent = parts.length ? `Balance excludes ${parts.join(' and ')}` : 'Balance: secured sale and secured lease';
     }
 
-    const activeMode = (dom.modeFilterPanel || dom.modeFilter)?.value || 'ALL';
-    if (dom.kpiModeActiveBadge) {
-      dom.kpiModeActiveBadge.textContent = activeMode === 'ALL' ? 'ALL MODES' : activeMode;
-    }
+    updateModeBadge();
   }
 
   function updateStagedEditsUI() {
@@ -5771,7 +5921,7 @@
                   <path d="M16 12V4h1V2H7v2h1v8l-2 2v2h5.2v6h1.6v-6H18v-2l-2-2z"/>
                 </svg>
               </button>
-              <button type="button" class="th-sort-wrap" data-fin-sort="${escapeHtml(h)}" aria-label="Sort by ${escapeHtml(h)}" title="Click to sort, drag to reorder">
+              <button type="button" class="th-sort-wrap" data-fin-sort="${escapeHtml(h)}" aria-label="Sort by ${escapeHtml(h)}" title="Sort · drag to reorder">
                 <span class="th-col-name">${escapeHtml(h)}</span>
                 <span class="th-sort-icon ${isSorted ? 'active' : ''}" aria-hidden="true">${sortIcon}</span>
               </button>
@@ -5783,8 +5933,8 @@
               <input class="th-filter-input" data-fin-filter-col="${escapeHtml(h)}" aria-label="Filter ${escapeHtml(h)} column" autocomplete="off" value="${escapeHtml(financeState.columnFilters[h] || '')}" placeholder="Filter ${escapeHtml(h)}…" />
             </div>
           </div>
-          <div class="th-resizer" data-fin-resize="${escapeHtml(h)}" title="Drag column width (Double-click to reset)"></div>
-          <div class="th-bottom-resizer" title="Drag to adjust header height"></div>
+          <div class="th-resizer" data-fin-resize="${escapeHtml(h)}" title="Drag to resize · double-click to reset"></div>
+          <div class="th-bottom-resizer" title="Drag to resize the header"></div>
         </th>
       `;
     });
@@ -6977,7 +7127,7 @@
                   <path d="M16 12V4h1V2H7v2h1v8l-2 2v2h5.2v6h1.6v-6H18v-2l-2-2z"/>
                 </svg>
               </button>
-              <button type="button" class="th-sort-wrap" data-conv-sort="${escapeHtml(h)}" aria-label="Sort by ${escapeHtml(h)}" title="Click to sort, drag to reorder">
+              <button type="button" class="th-sort-wrap" data-conv-sort="${escapeHtml(h)}" aria-label="Sort by ${escapeHtml(h)}" title="Sort · drag to reorder">
                 <span class="th-col-name">${escapeHtml(h)}</span>
                 <span class="th-sort-icon ${isSorted ? 'active' : ''}" aria-hidden="true">${sortIcon}</span>
               </button>
@@ -6989,8 +7139,8 @@
               <input class="th-filter-input" data-conv-filter-col="${escapeHtml(h)}" aria-label="Filter ${escapeHtml(h)} column" autocomplete="off" value="${escapeHtml(conversionState.columnFilters[h] || '')}" placeholder="Filter ${escapeHtml(h)}…" />
             </div>
           </div>
-          <div class="th-resizer" data-conv-resize="${escapeHtml(h)}" title="Drag column width (Double-click to reset)"></div>
-          <div class="th-bottom-resizer" title="Drag to adjust header height"></div>
+          <div class="th-resizer" data-conv-resize="${escapeHtml(h)}" title="Drag to resize · double-click to reset"></div>
+          <div class="th-bottom-resizer" title="Drag to resize the header"></div>
         </th>
       `;
     });
@@ -8104,7 +8254,7 @@
             <div class="th-header-box" style="justify-content: center; align-items: center;">
               <span class="th-col-name" style="text-align: center;">${escapeHtml(col.label)}</span>
             </div>
-            <div class="th-bottom-resizer" title="Drag to adjust header height"></div>
+            <div class="th-bottom-resizer" title="Drag to resize the header"></div>
           </th>`;
         return;
       }
@@ -8118,7 +8268,7 @@
                   <path d="M16 12V4h1V2H7v2h1v8l-2 2v2h5.2v6h1.6v-6H18v-2l-2-2z"/>
                 </svg>
               </button>
-              <button type="button" class="th-sort-wrap" data-log-sort="${col.key}" aria-label="Sort by ${escapeHtml(col.label)}" title="Click to sort by ${escapeHtml(col.label)} (Drag to rearrange)">
+              <button type="button" class="th-sort-wrap" data-log-sort="${col.key}" aria-label="Sort by ${escapeHtml(col.label)}" title="Sort by ${escapeHtml(col.label)} · drag to reorder">
                 <span class="th-col-name">${escapeHtml(col.label)}</span>
                 <span class="th-sort-icon ${isSorted ? 'active' : ''}" aria-hidden="true">${sortIcon}</span>
               </button>
@@ -8130,8 +8280,8 @@
               <input class="th-filter-input" data-log-filter-col="${col.key}" aria-label="Filter ${escapeHtml(col.label)} column" autocomplete="off" value="${escapeHtml(logsState.columnFilters[col.key] || '')}" placeholder="Filter ${escapeHtml(col.label)}…" />
             </div>
           </div>
-          <div class="th-resizer" data-log-resize="${col.key}" title="Drag column width (Double-click to reset)"></div>
-          <div class="th-bottom-resizer" title="Drag to adjust header height"></div>
+          <div class="th-resizer" data-log-resize="${col.key}" title="Drag to resize · double-click to reset"></div>
+          <div class="th-bottom-resizer" title="Drag to resize the header"></div>
         </th>
       `;
     });
@@ -8477,7 +8627,7 @@ function renderLogsChunk(startIdx, count) {
         btn.type = 'button';
         btn.className = 'btn xs ghost rc-revert-btn log-revert-btn';
         btn.textContent = 'Revert';
-        btn.title = 'Put the previous value back (writes a REVERT audit row)';
+        btn.title = 'Put the previous value back. This writes a REVERT entry log.';
         btn.addEventListener('click', (e) => {
           e.stopPropagation();
           window.revertLogRecord(logId);
@@ -9075,18 +9225,19 @@ function renderLogsChunk(startIdx, count) {
     const gt = fb.group_totals || {};
     const gAmt = (g, k) => Number((gt[g] || {})[k]) || 0;
     const MONEY_GROUPS = [
-      ['DIRECT_SALE', 'Direct sale (SECURED SALE, SS - FROM LAND, SS - FROM ROW)'],
-      ['LEASE_DIRECT', 'Secured lease (SECURED LEASE, SL - FROM LAND)'],
-      ['STP_SALE', 'Turned over to partner – sale'],
-      ['LEASE_STP', 'Turned over to partner – lease'],
-      ['NON_SP', 'Non-SP (SECURED SALE NON SP, SECURED LEASE NON SP)'],
+      ['DIRECT_SALE', 'Secured sale'],
+      ['LEASE_DIRECT', 'Secured lease'],
+      ['STP_SALE', 'Turned over – sale'],
+      ['LEASE_STP', 'Turned over – lease'],
+      ['NON_SP', 'Non-SP'],
       ['RESCINDED', 'Rescinded'],
-      ['OTHER', 'Mode not sale or lease']
+      ['OTHER', 'No sale or lease mode']
     ];
     const moneyTip = (k, counted, footer) => MONEY_GROUPS
       .filter(([g]) => gt[g] && (gt[g].count || gAmt(g, k)))
       .map(([g, label]) => `${label}: ${formatPesoExact(gAmt(g, k))}${counted.includes(g) ? '' : ' (not counted)'}`)
-      .concat(['', footer]).join('\n');
+      .concat([`Total: ${formatPesoExact(counted.reduce((sum, g) => sum + gAmt(g, k), 0))}`])
+      .concat(footer ? ['', footer] : []).join('\n');
     const paymentsMade = Number(fb.payments_made_total) || 0;
     const balanceToPay = Number(fb.balance_to_pay) || 0;
     const turnedPaid = Number(fb.turned_over_paid) || 0;
@@ -9094,18 +9245,18 @@ function renderLogsChunk(startIdx, count) {
     if (dom.dashKpiTotalDeductible) {
       dom.dashKpiTotalDeductible.textContent = formatPesoCompact(paymentsMade);
       dom.dashKpiTotalDeductible.title = moneyTip('paid', MONEY_GROUPS.map(([g]) => g),
-        'Every payment made is counted, including payments made before an account was turned over to partner.');
+        'Includes payments made before turnover to partner.');
     }
     if (dom.dashKpiDeductibleDelta) dom.dashKpiDeductibleDelta.innerHTML =
       `${deltaChip(ws.deductible_delta, { money: true, goodWhen: 'up' })}<span>this week${turnedPaid ? ` · incl. ${escapeHtml(formatPesoCompact(turnedPaid))} on accounts turned over to partner` : ''}</span>`;
     if (dom.dashKpiTotalBalance) {
       dom.dashKpiTotalBalance.textContent = formatPesoCompact(balanceToPay);
       dom.dashKpiTotalBalance.title = moneyTip('balance', ['DIRECT_SALE', 'LEASE_DIRECT'],
-        'Only direct sale and secured lease balances are yours to pay. Turned-over balances are the partner\'s; non-SP and rescinded balances are not counted.');
+        'Grey rows are not counted: only secured sale and secured lease balances are yours to pay.');
     }
     const balDelta = dashEl('dashKpiBalanceDelta');
     if (balDelta) balDelta.innerHTML =
-      `${deltaChip(ws.own_balance_delta, { money: true, goodWhen: 'down' })}<span>direct sale + secured lease${turnedBal ? ` · excl. ${escapeHtml(formatPesoCompact(turnedBal))} now with partner` : ''}</span>`;
+      `${deltaChip(ws.own_balance_delta, { money: true, goodWhen: 'down' })}<span>secured sale + secured lease${turnedBal ? ` · excl. ${escapeHtml(formatPesoCompact(turnedBal))} now with partner` : ''}</span>`;
     const sec = dashEl('dashKpiSecured');
     if (sec) sec.textContent = (conv.secured_count || 0).toLocaleString();
     const secD = dashEl('dashKpiSecuredDelta');
@@ -9131,11 +9282,14 @@ function renderLogsChunk(startIdx, count) {
     const directCount = fb.direct_sale_count || 0;
     const directPaidPct = Number(fb.direct_sale_paid_percent_num) || 0;
     const directTip = [
-      'Direct sale (SECURED SALE, SS - FROM LAND, SS - FROM ROW)',
-      `${directCount.toLocaleString()} lots`,
+      '# Secured sale',
+      `Lots: ${directCount.toLocaleString()}`,
       `Contract price: ${peso(gAmt('DIRECT_SALE', 'tcp'))}`,
-      `Paid: ${peso(gAmt('DIRECT_SALE', 'paid'))} (${directPaidPct.toFixed(1)}%)`,
-      `Balance to pay: ${peso(gAmt('DIRECT_SALE', 'balance'))}`
+      `Paid: ${peso(gAmt('DIRECT_SALE', 'paid'))}`,
+      `% paid: ${directPaidPct.toFixed(1)}%`,
+      `Balance: ${peso(gAmt('DIRECT_SALE', 'balance'))}`,
+      '',
+      'Modes: SECURED SALE, SS - FROM LAND, SS - FROM ROW.'
     ].join('\n');
     if (dom.dashFinancePaidRatio) {
       dom.dashFinancePaidRatio.textContent = directCount ? `${directPaidPct.toFixed(1)}%` : '—';
@@ -9144,17 +9298,17 @@ function renderLogsChunk(startIdx, count) {
     const finSub = dashEl('dashFinanceSub');
     if (finSub) {
       finSub.textContent = directCount
-        ? `direct sale paid · ${formatPesoCompact(fb.direct_sale_tcp || 0)} contract · ${formatPesoCompact(gAmt('DIRECT_SALE', 'balance'))} balance`
-        : 'no direct sale accounts in this view';
+        ? `secured sale paid · ${formatPesoCompact(fb.direct_sale_tcp || 0)} contract · ${formatPesoCompact(gAmt('DIRECT_SALE', 'balance'))} balance`
+        : 'no secured sale accounts in this view';
       finSub.title = directTip;
     }
     const finSegs = [
       { name: 'FULLY PAID', count: fb.fully_paid_count || 0, pct: fb.fully_paid_percent_num || 0, cls: 'ov-c-pos',
-        tip: 'Fully paid (₱0 balance): direct sale accounts whose payments cover the full contract price.' },
+        tip: 'Payments cover the full contract price.' },
       { name: 'PARTIALLY PAID', count: fb.partially_paid_count || 0, pct: fb.partially_paid_percent_num || 0, cls: 'ov-c-mid',
-        tip: 'Partially paid (with balance): direct sale accounts with some payment made and a balance still to pay.' },
+        tip: 'Some payment made, with a balance still to pay.' },
       { name: 'NO PAYMENT YET', count: fb.zero_paid_count || 0, pct: fb.zero_paid_percent_num || 0, cls: 'ov-c-none',
-        tip: 'No payment yet: direct sale accounts with nothing deducted from the contract price yet.' }
+        tip: 'Nothing paid against the contract price yet.' }
     ];
     renderStack(dashEl('dashFinanceStack'), directCount ? finSegs : [], 'lots');
 
@@ -9169,12 +9323,15 @@ function renderLogsChunk(startIdx, count) {
     const leasePaid = gAmt('LEASE_DIRECT', 'paid');
     const leaseBal = gAmt('LEASE_DIRECT', 'balance');
     const leaseTip = [
-      `Secured lease (SECURED LEASE, SL - FROM LAND): ${leaseCount.toLocaleString()} lots (rent basis)`,
-      `Contract price (total rent over the lease term): ${peso(leaseTcp)}`,
-      `Paid: ${peso(leasePaid)} (${leasePct.toFixed(1)}%)`,
-      `Balance (rent remaining): ${peso(leaseBal)}, counted in Balance to pay`,
+      '# Secured lease',
+      `Lots: ${leaseCount.toLocaleString()}`,
+      `Contract price (total rent): ${peso(leaseTcp)}`,
+      `Paid: ${peso(leasePaid)}`,
+      `% paid: ${leasePct.toFixed(1)}%`,
+      `Balance (rent remaining): ${peso(leaseBal)}`,
       '',
-      'A lease reaches 100% only at the end of its term, so a low % here does not mean rent is overdue.'
+      'Reaches 100% only at the end of the lease term.',
+      'Modes: SECURED LEASE, SL - FROM LAND.'
     ].join('\n');
     const leasePaidW = leaseTcp > 0 ? Math.min(100, (leasePaid / leaseTcp) * 100) : 0;
     const leaseBlock = leaseCount
@@ -9186,20 +9343,26 @@ function renderLogsChunk(startIdx, count) {
     const others = [
       { name: 'TURNED OVER TO PARTNER', count: turnedSale + turnedLease, right: `${(turnedSale + turnedLease).toLocaleString()} lots`,
         tip: [
-          `Sale (SS - STP, SS - FROM LAND STP): ${turnedSale.toLocaleString()} lots · ${peso(gAmt('STP_SALE', 'paid'))} paid before turnover`,
-          `Lease (SL - STP, SL - FROM LAND STP): ${turnedLease.toLocaleString()} lots · ${peso(gAmt('LEASE_STP', 'paid'))} paid before turnover`,
-          `Remaining ${peso(gAmt('STP_SALE', 'balance') + gAmt('LEASE_STP', 'balance'))} is the partner's to pay (not counted).`
+          '# Turned over to partner',
+          `Sale: ${turnedSale.toLocaleString()} lots`,
+          `Lease: ${turnedLease.toLocaleString()} lots`,
+          `Paid before turnover: ${peso(gAmt('STP_SALE', 'paid') + gAmt('LEASE_STP', 'paid'))}`,
+          `Partner's balance: ${peso(gAmt('STP_SALE', 'balance') + gAmt('LEASE_STP', 'balance'))} (not counted)`,
+          '',
+          'The partner\'s balance is not counted in Balance to pay.'
         ].join('\n') },
       { name: 'NON-SP', count: fb.non_sp_count || 0, right: `${(fb.non_sp_count || 0).toLocaleString()} lots`,
-        tip: `Non-SP (SECURED SALE NON SP, SECURED LEASE NON SP): ${peso(gAmt('NON_SP', 'paid'))} paid (counted in Payments made); balance ${peso(gAmt('NON_SP', 'balance'))} not counted in Balance to pay.` },
+        tip: ['# Non-SP', `Paid: ${peso(gAmt('NON_SP', 'paid'))}`, `Balance: ${peso(gAmt('NON_SP', 'balance'))} (not counted)`,
+          '', 'Balance is not counted in Balance to pay.', 'Modes: SECURED SALE NON SP, SECURED LEASE NON SP.'].join('\n') },
       { name: 'RESCINDED', count: fb.rescinded_count || 0, right: `${(fb.rescinded_count || 0).toLocaleString()} lots`,
-        tip: `Rescinded (RESCINDED, SS - RESCINDED, SL - RESCINDED): ${peso(gAmt('RESCINDED', 'paid'))} paid (counted in Payments made); remaining balance is not owed.` },
+        tip: ['# Rescinded', `Paid: ${peso(gAmt('RESCINDED', 'paid'))}`, `Balance: ${peso(gAmt('RESCINDED', 'balance'))} (not counted)`,
+          '', 'The remaining balance is not owed.', 'Modes: RESCINDED, SS - RESCINDED, SL - RESCINDED.'].join('\n') },
       { name: 'MODE NOT SALE OR LEASE', count: fb.other_count || 0, right: `${(fb.other_count || 0).toLocaleString()} lots`,
-        tip: 'Mode is blank or not a sale or lease.' }
+        tip: 'Mode is blank, or not a sale or lease.' }
     ].filter(o => o.count > 0);
     if (dom.dashFinanceBreakdownContainer) {
       const statusRows = directCount ? finSegs.map(s =>
-        `<div class="ov-li ov-tip" title="${escapeHtml(`${s.tip}\n${s.count.toLocaleString()} of ${directCount.toLocaleString()} lots (${s.pct.toFixed(1)}%)`)}"><span class="ov-sw ${s.cls}"></span><span class="ov-nm">${escapeHtml(s.name)}</span><span class="ov-ct">${s.count.toLocaleString()} lots · ${s.pct.toFixed(1)}%</span></div>`).join('') : '';
+        `<div class="ov-li ov-tip" title="${escapeHtml(`# ${s.name.charAt(0)}${s.name.slice(1).toLowerCase()}\nLots: ${s.count.toLocaleString()} of ${directCount.toLocaleString()}\nShare: ${s.pct.toFixed(1)}%\n\n${s.tip}`)}"><span class="ov-sw ${s.cls}"></span><span class="ov-nm">${escapeHtml(s.name)}</span><span class="ov-ct">${s.count.toLocaleString()} lots · ${s.pct.toFixed(1)}%</span></div>`).join('') : '';
       const otherRows = others.length
         ? `<div class="ov-legend-sep">Not in % paid · hover for details</div>` + others.map(o =>
             `<div class="ov-li ov-li-muted ov-tip" title="${escapeHtml(o.tip)}"><span class="ov-sw ov-c-hatch"></span><span class="ov-nm">${escapeHtml(o.name)}</span><span class="ov-ct">${escapeHtml(o.right)}</span></div>`).join('')
@@ -9207,8 +9370,8 @@ function renderLogsChunk(startIdx, count) {
       dom.dashFinanceBreakdownContainer.innerHTML = (statusRows + leaseBlock + otherRows) || '<p class="ov-empty">No accounts in this view.</p>';
     }
     if (dom.dashFinanceFooterStats) {
-      const paidTip = moneyTip('paid', MONEY_GROUPS.map(([g]) => g), 'Every payment made is counted, including before turnover to partner.');
-      const balTip = moneyTip('balance', ['DIRECT_SALE', 'LEASE_DIRECT'], 'Only direct sale and secured lease balances are yours to pay.');
+      const paidTip = '# Payments made\n' + moneyTip('paid', MONEY_GROUPS.map(([g]) => g), 'Includes payments made before turnover to partner.');
+      const balTip = '# Balance to pay\n' + moneyTip('balance', ['DIRECT_SALE', 'LEASE_DIRECT'], 'Grey rows are not counted: only secured sale and secured lease balances are yours to pay.');
       dom.dashFinanceFooterStats.innerHTML =
         `<span class="ov-tip" title="${escapeHtml(paidTip)}">Payments made <b>${escapeHtml(formatPesoCompact(paymentsMade))}</b></span> · `
         + `<span class="ov-tip" title="${escapeHtml(balTip)}">Balance to pay <b>${escapeHtml(formatPesoCompact(balanceToPay))}</b></span>`;
@@ -9471,9 +9634,8 @@ function renderLogsChunk(startIdx, count) {
     if (!query) return;
     const cleanQ = String(query).trim();
     if (dom.searchInput) dom.searchInput.value = cleanQ;
-    if (dom.modeFilter) dom.modeFilter.value = 'ALL';
-    if (dom.modeFilterPanel) dom.modeFilterPanel.value = 'ALL';
-    if (dom.kpiModeActiveBadge) dom.kpiModeActiveBadge.textContent = 'ALL';
+    getModeFilter().setSelected([]);
+    updateModeBadge();
     switchView('records');
     filterAndRenderRecords();
     showToast(`Showing Land Master records matching "${cleanQ}".`, 'ok');
@@ -9937,4 +10099,165 @@ function renderLogsChunk(startIdx, count) {
   }
 
   init();
+})();
+
+/**
+ * Styled hover cards for every `title` in the app (added 2026-10-14).
+ * The native browser tooltip is plain and slow, so on first hover each `title`
+ * moves to data-tip and is shown in a themed card instead. Text written as
+ * "Label: value" lines becomes aligned rows; a "Total:" row is emphasised; a
+ * paragraph after a blank line becomes a muted footnote. Code that later sets
+ * el.title again still works: the new text is picked up on the next hover.
+ */
+(function () {
+  'use strict';
+  const SHOW_DELAY = 220;
+  let tipEl = null;
+  let current = null;
+  let showTimer = null;
+
+  function esc(text) {
+    return String(text).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
+  function ensureTip() {
+    if (tipEl) return tipEl;
+    tipEl = document.createElement('div');
+    tipEl.className = 'app-tip';
+    tipEl.setAttribute('role', 'tooltip');
+    tipEl.id = 'appHoverTip';
+    document.body.appendChild(tipEl);
+    return tipEl;
+  }
+
+  const ROW = /^([^:\n]{1,64}):\s+(.+)$/;
+
+  function renderBody(text) {
+    const blocks = String(text).trim().split(/\n\s*\n/);
+    return blocks.map((block, bi) => {
+      const lines = block.split('\n').map(l => l.trim()).filter(Boolean);
+      const rowLines = lines.filter(l => ROW.test(l) && !/[.!?]$/.test(l.split(':').slice(1).join(':').trim()));
+      const isTable = rowLines.length >= Math.max(1, Math.ceil(lines.length * 0.6)) && !(bi > 0 && lines.length === 1 && /[.!?]$/.test(lines[0]));
+      if (!isTable) {
+        const cls = bi > 0 ? 'app-tip-note' : 'app-tip-text';
+        return `<div class="${cls}">${lines.map(esc).join('<br>')}</div>`;
+      }
+      const rows = lines.map(line => {
+        const m = line.match(ROW);
+        if (!m) return `<div class="app-tip-text app-tip-span">${esc(line)}</div>`;
+        let [, label, value] = m;
+        const total = /^total\b/i.test(label.trim());
+        let flag = '';
+        const fm = value.match(/\s*\((not counted|excluded|not in % paid)\)\s*$/i);
+        if (fm) { flag = fm[1]; value = value.slice(0, fm.index); }
+        return `<div class="app-tip-row${total ? ' total' : ''}${flag ? ' muted' : ''}">`
+          + `<span class="app-tip-label">${esc(label.trim())}</span>`
+          + `<span class="app-tip-value">${esc(value.trim())}</span></div>`;
+      }).join('');
+      return `<div class="app-tip-rows">${rows}</div>`;
+    }).join('');
+  }
+
+  function headingFor(el) {
+    if (el.dataset.tipTitle) return el.dataset.tipTitle;
+    const card = el.closest('.kpi-card, .ov-kpi');
+    if (card && (el === card || el.classList.contains('kpi-value') || el.classList.contains('ov-kpi-v'))) {
+      const label = card.querySelector('.kpi-label, .ov-kpi-l');
+      if (label) return label.textContent.trim();
+    }
+    return '';
+  }
+
+  function claim(el) {
+    const t = el.getAttribute('title');
+    if (t !== null) {
+      el.dataset.tip = t;
+      el.removeAttribute('title');
+      if (!el.getAttribute('aria-label') && !el.textContent.trim() && t.trim()) el.setAttribute('aria-label', t.trim());
+    }
+    return el.dataset.tip || '';
+  }
+
+  function place(el) {
+    const tip = ensureTip();
+    const r = el.getBoundingClientRect();
+    const vw = document.documentElement.clientWidth;
+    const vh = document.documentElement.clientHeight;
+    const tw = tip.offsetWidth;
+    const th = tip.offsetHeight;
+    const gap = 8;
+    // Large targets (cards, panels): open under the top area near the pointer side.
+    let left = r.width > tw ? r.left + 12 : r.left + r.width / 2 - tw / 2;
+    left = Math.max(8, Math.min(left, vw - tw - 8));
+    let top = r.bottom + gap;
+    let below = true;
+    if (top + th > vh - 8 && r.top - gap - th >= 8) { top = r.top - gap - th; below = false; }
+    top = Math.max(8, Math.min(top, vh - th - 8));
+    tip.style.left = `${Math.round(left)}px`;
+    tip.style.top = `${Math.round(top)}px`;
+    tip.dataset.side = below ? 'below' : 'above';
+  }
+
+  function show(el) {
+    const text = claim(el);
+    if (!text.trim()) return;
+    const tip = ensureTip();
+    let body = text;
+    let heading = headingFor(el);
+    const hm = body.match(/^#\s+(.+)\n?/);
+    if (hm) { heading = hm[1].trim(); body = body.slice(hm[0].length); }
+    tip.innerHTML = (heading ? `<div class="app-tip-head">${esc(heading)}</div>` : '') + (body.trim() ? renderBody(body) : '');
+    tip.classList.toggle('compact', !heading && !/\n/.test(body) && body.length <= 60);
+    tip.classList.add('measuring');
+    place(el);
+    tip.classList.remove('measuring');
+    tip.classList.add('visible');
+    el.setAttribute('aria-describedby', 'appHoverTip');
+  }
+
+  function hide() {
+    clearTimeout(showTimer);
+    showTimer = null;
+    if (current) current.removeAttribute('aria-describedby');
+    current = null;
+    if (tipEl) tipEl.classList.remove('visible');
+  }
+
+  function targetOf(node) {
+    if (!node || !node.closest) return null;
+    if (node.closest('.cell-hover-tooltip, .app-tip')) return null;
+    return node.closest('[title], [data-tip]');
+  }
+
+  function enter(el) {
+    if (el === current) return;
+    hide();
+    claim(el);
+    if (!el.dataset.tip || !el.dataset.tip.trim()) return;
+    current = el;
+    showTimer = setTimeout(() => { if (current === el && el.isConnected) show(el); }, SHOW_DELAY);
+  }
+
+  document.addEventListener('mouseover', (e) => {
+    const el = targetOf(e.target);
+    if (el) enter(el);
+    else if (current) hide();
+  }, true);
+  document.addEventListener('mouseout', (e) => {
+    if (!current) return;
+    const to = e.relatedTarget;
+    if (!to || !current.contains(to)) {
+      const next = targetOf(to);
+      if (next !== current) hide();
+    }
+  }, true);
+  document.addEventListener('focusin', (e) => {
+    const el = targetOf(e.target);
+    if (el && e.target.matches(':focus-visible')) { enter(el); }
+  });
+  document.addEventListener('focusout', hide);
+  ['mousedown', 'keydown', 'wheel', 'scroll'].forEach(type =>
+    window.addEventListener(type, (e) => { if (type === 'keydown' && e.key !== 'Escape' && !current) return; hide(); }, { capture: true, passive: true }));
+  window.addEventListener('blur', hide);
+  window.addEventListener('resize', hide);
 })();
