@@ -61,9 +61,14 @@ class TestDashboardAnalytics(unittest.TestCase):
         
         # Financial Breakdown
         fb = res["financial_breakdown"]
+        # Paid/unpaid counts cover direct sale only (decision 2026-10-13):
+        # the SS - STP account is counted as turned over to partner instead.
         self.assertEqual(fb["fully_paid_count"], 1)
         self.assertEqual(fb["partially_paid_count"], 1)
-        self.assertEqual(fb["zero_paid_count"], 1)
+        self.assertEqual(fb["zero_paid_count"], 0)
+        self.assertEqual(fb["direct_sale_count"], 2)
+        self.assertEqual(fb["stp_sale_count"], 1)
+        self.assertEqual(fb["direct_sale_balance"], 1500000.0)
 
         # Conversion Metrics
         cm = res["conversion_metrics"]

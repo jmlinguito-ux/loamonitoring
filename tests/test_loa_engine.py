@@ -188,19 +188,23 @@ class TestWorkWeekCalculation(unittest.TestCase):
         from loa_engine import get_work_week
         from datetime import datetime
 
-        # Test Wednesday-to-Tuesday cycle
+        # Tuesday-to-Monday cycle (decision 2026-10-14)
         self.assertEqual(get_work_week("09/17/2026"), "WW-38")
         self.assertEqual(get_work_week("01/01/2026"), "WW-01")
         self.assertEqual(get_work_week("12/31/2025"), "WW-01")
         self.assertEqual(get_work_week("01/05/2025"), "WW-01")
-        # 2024 starts on a Monday, so its WW-01 is Wed Jan 3 - Tue Jan 9, 2024
+        # 2024 starts on a Monday, so its WW-01 is Tue Jan 2 - Mon Jan 8, 2024
         # (the week holding Jan 1 belongs to 2023). Sep 1, 2024 is WW-35.
         # The old count skipped WW-01 in such years and returned WW-36.
         self.assertEqual(get_work_week("09/01/2024"), "WW-35")
         self.assertEqual(get_work_week("01/03/2024"), "WW-01")
         self.assertEqual(get_work_week("01/03/2029"), "WW-01")
-        self.assertEqual(get_work_week("01/09/2029"), "WW-01")
-        self.assertEqual(get_work_week("01/02/2029"), "WW-53")  # last week of 2028
+        self.assertEqual(get_work_week("01/08/2029"), "WW-01")  # Monday ends WW-01
+        self.assertEqual(get_work_week("01/09/2029"), "WW-02")  # Tuesday starts WW-02
+        self.assertEqual(get_work_week("01/02/2029"), "WW-01")  # Tuesday starts WW-01 of 2029
+        self.assertEqual(get_work_week("01/01/2029"), "WW-53")  # Monday ends last week of 2028
+        self.assertEqual(get_work_week("10/12/2026"), "WW-41")  # Mon Oct 12 ends WW-41
+        self.assertEqual(get_work_week("10/13/2026"), "WW-42")  # Tue Oct 13 starts WW-42
         self.assertEqual(get_work_week("2026-09-17"), "WW-38")
         self.assertEqual(get_work_week(datetime(2026, 9, 17)), "WW-38")
         self.assertEqual(get_work_week(""), "")

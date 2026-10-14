@@ -165,7 +165,7 @@ class TestAlwaysSavePaid(unittest.TestCase):
 
 class TestWorkWeekYear(unittest.TestCase):
     def test_label_uses_work_week_year(self):
-        # Wed Dec 29 2027 - Tue Jan 4 2028: Saturday is Jan 1 2028.
+        # Tue Dec 28 2027 - Mon Jan 3 2028: Saturday is Jan 1 2028.
         self.assertEqual(get_work_week_label(datetime(2027, 12, 29)), '2028 · WW-01')
         self.assertEqual(get_work_week_label(datetime(2027, 1, 1)), '2027 · WW-01')
         self.assertNotEqual(get_work_week_label(datetime(2027, 12, 30)), get_work_week_label(datetime(2027, 1, 1)))
