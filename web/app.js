@@ -9202,22 +9202,37 @@ function renderLogsChunk(startIdx, count) {
     const convSub = dashEl('dashConvSub');
     if (convSub) convSub.textContent = `secured · ${(Number(conv.total_applied_area) || 0).toLocaleString('en-US', { maximumFractionDigits: 1 })} ha applied`;
     const totalLots = conv.total_lots || 0;
-    const notYet = Math.max(0, totalLots - (conv.secured_count || 0) - (conv.in_progress_count || 0));
     const pctOf = (n) => totalLots ? (n / totalLots) * 100 : 0;
-    const convSegs = [
-      { name: 'Secured', count: conv.secured_count || 0, pct: pctOf(conv.secured_count || 0), cls: 'ov-c-acc' },
-      { name: 'In progress', count: conv.in_progress_count || 0, pct: pctOf(conv.in_progress_count || 0), cls: 'ov-c-warn' },
-      { name: 'Not yet endorsed', count: notYet, pct: pctOf(notYet), cls: 'ov-c-none' }
-    ];
+    // Each status gets its own colour (decision 2026-10-14): shades of blue for secured,
+    // amber/orange for in progress, red for pulled-out/withdrawn, grey for not yet endorsed.
+    // The bar is split by status in the same order and colours as the list.
+    const breakdown = (conv.breakdown || []).slice().sort((x, y) => (convRank(y.status) - convRank(x.status)) || ((y.count || 0) - (x.count || 0)));
+    const CONV_COLORS = {
+      'DAR FINALITY SECURED': '#1e3a8a',
+      'DAR CO SECURED': '#3b82f6',
+      'DAR APPLIED': '#d97706',
+      'DAR FOR APPLICATION': '#fbbf24',
+      'DAR PULLED-OUT/ WITHDRAWN': '#dc2626',
+      'DAR PULLED-OUT/WITHDRAWN': '#dc2626',
+      'NOT YET ENDORSED': '#cbd5e1'
+    };
+    const RANK_SHADES = { 3: ['#1d4ed8', '#60a5fa', '#93c5fd'], 2: ['#ea580c', '#f59e0b', '#fcd34d', '#fdba74'], 1: ['#94a3b8', '#cbd5e1', '#e2e8f0'] };
+    const usedPerRank = { 1: 0, 2: 0, 3: 0 };
+    const convColor = (status) => {
+      const key = String(status || '').trim().toUpperCase().replace(/\s+/g, ' ');
+      if (CONV_COLORS[key]) return CONV_COLORS[key];
+      if (/PULLED|WITHDRAWN|CANCEL|REVOKED|DENIED|REJECTED/.test(key)) return '#dc2626';
+      const r = convRank(status);
+      const shades = RANK_SHADES[r] || RANK_SHADES[1];
+      return shades[(usedPerRank[r]++) % shades.length];
+    };
+    const convSegs = breakdown.map(b => ({
+      name: String(b.status || '').toUpperCase(), count: b.count || 0, pct: pctOf(b.count || 0), color: convColor(b.status)
+    }));
     renderStack(dashEl('dashConvStack'), convSegs, 'lots');
     if (dom.dashConvBarsContainer) {
-      const breakdown = (conv.breakdown || []).slice().sort((x, y) => (convRank(y.status) - convRank(x.status)) || ((y.count || 0) - (x.count || 0)));
-      const bucketCls = (st) => {
-        const r = convRank(st);
-        return r === 3 ? 'ov-c-acc' : r === 2 ? 'ov-c-warn' : 'ov-c-none';
-      };
-      dom.dashConvBarsContainer.innerHTML = breakdown.length
-        ? breakdown.map(b => `<div class="ov-li"><span class="ov-sw ${bucketCls(b.status)}"></span><span class="ov-nm">${escapeHtml(String(b.status || '').toUpperCase())}</span><span class="ov-ct">${(b.count || 0).toLocaleString()}</span></div>`).join('')
+      dom.dashConvBarsContainer.innerHTML = convSegs.length
+        ? convSegs.map(c => `<div class="ov-li" title="${escapeHtml(`${c.name}: ${c.count.toLocaleString()} lots (${c.pct.toFixed(1)}%)`)}"><span class="ov-sw" style="background:${c.color}"></span><span class="ov-nm">${escapeHtml(c.name)}</span><span class="ov-ct">${c.count.toLocaleString()}</span></div>`).join('')
         : '<p class="ov-empty">No conversion statuses yet.</p>';
     }
 
@@ -9268,7 +9283,7 @@ function renderLogsChunk(startIdx, count) {
   function renderStack(el, segs, unit) {
     if (!el) return;
     el.innerHTML = segs.filter(s => s.pct > 0).map(s =>
-      `<i class="${s.cls}" style="width:${Math.min(100, s.pct)}%" title="${escapeHtml(s.name)}: ${s.count.toLocaleString()} ${unit} (${s.pct.toFixed(1)}%)"></i>`).join('');
+      `<i class="${s.cls || ''}" style="width:${Math.min(100, s.pct)}%${s.color ? `;background:${s.color}` : ''}" title="${escapeHtml(s.name)}: ${s.count.toLocaleString()} ${unit} (${s.pct.toFixed(1)}%)"></i>`).join('');
     el.setAttribute('aria-label', segs.map(s => `${s.name} ${s.pct.toFixed(1)}%`).join(', '));
   }
   function renderLegend(segs, unit) {
