@@ -824,32 +824,34 @@
         </div>
 
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
-          <div style="display: flex; flex-direction: column; gap: 4px;">
+          <div style="display: flex; flex-direction: column; gap: 4px; min-width: 0;">
             <label class="form-label">Conversion Status</label>
             <input type="text" id="fConversionStatus" class="input" placeholder="e.g. NOT YET ENDORSED" />
           </div>
 
-          <div style="display: flex; flex-direction: column; gap: 4px;">
-            <label class="form-label">RCC Terms</label>
-            <input type="text" id="fRccTerms" class="input" placeholder="e.g. Standard" />
+          <div style="display: flex; flex-direction: column; gap: 4px; min-width: 0;">
+            <label class="form-label" for="fAcquisitionSubLevel">Acquisition Sub-Level <span aria-hidden="true">*</span></label>
+            <select id="fAcquisitionSubLevel" class="select" required>
+              <option value="">-- Select Acquisition Sub-Level --</option>
+            </select>
           </div>
         </div>
 
-        <div style="display: flex; flex-direction: column; gap: 4px;">
-          <label class="form-label" for="fAcquisitionSubLevel">Acquisition Sub-Level <span aria-hidden="true">*</span></label>
-          <select id="fAcquisitionSubLevel" class="select" required>
-            <option value="">-- Select Acquisition Sub-Level --</option>
-          </select>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+          <div style="display: flex; flex-direction: column; gap: 4px; min-width: 0;">
+            <label class="form-label">RCC Terms</label>
+            <input type="text" id="fRccTerms" class="input" placeholder="e.g. Standard" />
+          </div>
+
+          <div style="display: flex; flex-direction: column; gap: 4px; min-width: 0;">
+            <label class="form-label">RCC Price</label>
+            <input type="text" id="fRccPrice" class="input mono-input" placeholder="0.00" />
+          </div>
         </div>
 
-        <div style="display: flex; flex-direction: column; gap: 4px;">
-          <label class="form-label">RCC Price</label>
-          <input type="text" id="fRccPrice" class="input mono-input" placeholder="0.00" />
-        </div>
-
-        <!-- 5. Milestone Dates -->
+        <!-- 6. Milestone Dates -->
         <div class="section-subhead">
-          5. Milestone Dates
+          6. Milestone Dates
         </div>
 
         <div class="milestone-dates-grid">
@@ -869,7 +871,7 @@
           </div>
         </div>
 
-        <!-- 6. Additional Dynamic Attributes -->
+        <!-- 7. Additional Dynamic Attributes -->
         <div id="dynamicAttributesContainer"></div>
       </div>
 

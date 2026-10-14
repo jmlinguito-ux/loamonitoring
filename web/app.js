@@ -2244,6 +2244,12 @@
     return normalized;
   }
 
+  // Today's local date as MM/DD/YYYY (the Endorsed Date default).
+  function todayMMDDYYYY() {
+    const now = new Date();
+    return `${String(now.getMonth() + 1).padStart(2, '0')}/${String(now.getDate()).padStart(2, '0')}/${now.getFullYear()}`;
+  }
+
   function formatDateMMDDYYYY(dateVal) {
     if (!dateVal) return '';
     if (dateVal instanceof Date && !isNaN(dateVal.getTime())) {
@@ -4583,11 +4589,21 @@
 
     setupAreaIndexSuggestions();
 
+    // An account loaded by picking its Area-Index keeps its stored values: while the
+    // Area-Index still names that account, a lookup only compares with the reference.
+    const onIdentityInput = () => {
+      if (drawerPicked && dom.fRecordId.value && dom.fAreaIndex
+          && dom.fAreaIndex.value.trim().toUpperCase() === drawerPicked.area.toUpperCase()) {
+        triggerLiveLookup(false, false);
+        return;
+      }
+      triggerLiveLookup();
+    };
     const lookupTriggers = [dom.fType, dom.fIndexNo, dom.fAreaIndex, dom.fTitleNo];
     lookupTriggers.forEach(input => {
       if (input) {
-        input.addEventListener('input', triggerLiveLookup);
-        input.addEventListener('change', triggerLiveLookup);
+        input.addEventListener('input', onIdentityInput);
+        input.addEventListener('change', onIdentityInput);
       }
     });
 
@@ -4637,7 +4653,7 @@
     function renderAreaSuggestions(query) {
       // Editing an existing account: the suggestion list (copy another account
       // as a template) does not apply.
-      if (dom.fRecordId && dom.fRecordId.value) {
+      if (dom.fRecordId && dom.fRecordId.value && !drawerPicked) {
         dom.areaIndexSuggestions.classList.add('hidden');
         return;
       }
@@ -4699,25 +4715,40 @@
           e.stopPropagation();
           const k = opt.dataset.areaKey;
           const match = areaMap.get(k.toUpperCase());
-          if (match) {
-            populateFormFromRecord(match.rec, k);
-            // The drawer creates a new account: the chosen account is a template
-            // for another parcel in the same area, so its Control Number (which
-            // must be unique) is not copied.
-            if (!dom.fRecordId.value && dom.fControl) {
-              dom.fControl.value = '';
-              dom.fControl.focus();
-              showToast(`Filled from ${k}. Enter a new Control Number for this account.`, 'info');
-            }
-          }
+          if (match) pickExistingArea(k, match.rec);
           dom.areaIndexSuggestions.classList.add('hidden');
         });
       });
     }
 
     dom.fAreaIndex.addEventListener('input', () => {
+      // Typing another Area-Index after picking an account: this is a new account,
+      // so stop updating the picked one.
+      if (drawerPicked && dom.fRecordId.value
+          && dom.fAreaIndex.value.trim().toUpperCase() !== drawerPicked.area.toUpperCase()) {
+        setPickedDrawerMode(false, true);
+      }
       renderAreaSuggestions(dom.fAreaIndex.value);
+      clearTimeout(autoPickTimer);
+      autoPickTimer = setTimeout(autoPickExactArea, 350);
     });
+    // Tab / Enter / leaving the field with a complete Area-Index loads it too, so
+    // typing gives the same result as clicking the suggestion.
+    dom.fAreaIndex.addEventListener('change', autoPickExactArea);
+    dom.fAreaIndex.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); autoPickExactArea(); }
+    });
+
+    if (dom.fControl) {
+      // Picked account: its own Control Number updates it; any other number creates
+      // a new account that uses it as a template.
+      dom.fControl.addEventListener('input', () => {
+        if (!drawerPicked) return;
+        const same = dom.fControl.value.trim().toUpperCase() === drawerPicked.control.toUpperCase();
+        if (same && !dom.fRecordId.value) setPickedDrawerMode(true);
+        else if (!same && dom.fRecordId.value) setPickedDrawerMode(false);
+      });
+    }
 
     dom.fAreaIndex.addEventListener('focus', () => {
       renderAreaSuggestions(dom.fAreaIndex.value);
@@ -4741,6 +4772,93 @@
         dom.areaIndexSuggestions.classList.add('hidden');
       }
     });
+  }
+
+  // New LOA Entry / Log (decision 2026-10-14): picking an existing Area-Index loads
+  // that account, so its Control Number shows like the other fields and Save updates
+  // it and logs the changes. Typing a different Control Number (or Area-Index) turns
+  // the drawer back into a new entry that uses the picked account as a template.
+  let drawerPicked = null; // { id, control, area, baseline, label }
+  // True while the drawer was opened with New LOA Entry / Log. In that drawer the
+  // Endorsed Date is always today: on open, after picking or loading an account, when
+  // switching between update and new, and a Finance lookup never replaces it.
+  let drawerIsEntryLog = false;
+  let autoPickTimer = null;
+  let lastAutoPickedArea = '';
+
+  function applyEntryLogEndorsedDate() {
+    if (!drawerIsEntryLog || !dom.fEndorsedDate) return;
+    dom.fEndorsedDate.value = todayMMDDYYYY();
+    dom.fEndorsedDate.title = "New LOA Entry / Log always uses today's date.";
+  }
+
+  const recordAreaIndex = (r) => String(r['cr63f_areaindex'] || r['Area-Index'] || r['AREA-INDEX'] || '').trim();
+
+  // A typed Area-Index that exactly matches an existing account loads it, the same as
+  // clicking its suggestion.
+  function autoPickExactArea() {
+    clearTimeout(autoPickTimer);
+    if (!drawerIsEntryLog || !dom.fAreaIndex) return;
+    const typed = dom.fAreaIndex.value.trim().toUpperCase();
+    if (!typed || typed === lastAutoPickedArea) return;
+    const rec = (state.records || []).find(r => recordAreaIndex(r).toUpperCase() === typed);
+    if (!rec) return;
+    pickExistingArea(recordAreaIndex(rec), rec);
+    if (dom.areaIndexSuggestions) dom.areaIndexSuggestions.classList.add('hidden');
+  }
+
+  function setPickedDrawerMode(update, clearControl = false) {
+    if (!drawerPicked) return;
+    if (update) {
+      dom.fRecordId.value = drawerPicked.id;
+      drawerBaseline = drawerPicked.baseline;
+      if (dom.drawerTitle) dom.drawerTitle.textContent = `Update account ${drawerPicked.label}`;
+      if (dom.btnSaveDrawerEntry) dom.btnSaveDrawerEntry.textContent = 'Save Changes';
+      applyEntryLogEndorsedDate();
+    } else {
+      dom.fRecordId.value = '';
+      drawerBaseline = null;
+      if (dom.drawerTitle) dom.drawerTitle.textContent = 'New LOA Entry / Log';
+      if (dom.btnSaveDrawerEntry) dom.btnSaveDrawerEntry.textContent = 'Save Entry to Dataverse';
+      if (clearControl && dom.fControl) dom.fControl.value = '';
+      applyEntryLogEndorsedDate();
+    }
+  }
+
+  function pickExistingArea(areaKey, templateRec) {
+    const wanted = String(areaKey || '').trim().toUpperCase();
+    lastAutoPickedArea = wanted;
+    const accounts = (state.records || []).filter(r => recordAreaIndex(r).toUpperCase() === wanted);
+    const rec = accounts.length === 1 ? accounts[0] : null;
+    const hasGridEdits = rec && state.stagedEdits && state.stagedEdits[rec.__id]
+      && Object.keys(state.stagedEdits[rec.__id]).length;
+
+    if (rec && rec.__id && !hasGridEdits) {
+      dom.fRecordId.value = String(rec.__id);
+      populateFormFromRecord(rec, areaKey);
+      const control = dom.fControl ? dom.fControl.value.trim() : '';
+      drawerPicked = {
+        id: String(rec.__id), control, area: dom.fAreaIndex ? dom.fAreaIndex.value.trim() : areaKey,
+        baseline: drawerBaseline, label: control || areaKey,
+      };
+      setPickedDrawerMode(true);
+      showToast(`Loaded ${control || areaKey}. Save updates this account and logs the changes. Type a different Control Number to create a new account from it instead.`, 'info');
+      return;
+    }
+
+    // Several accounts share this Area-Index, or the account has unsaved grid edits:
+    // use the picked one as a template for a new account.
+    drawerPicked = null;
+    dom.fRecordId.value = '';
+    populateFormFromRecord(templateRec, areaKey);
+    drawerBaseline = null;
+    if (dom.fControl) { dom.fControl.value = ''; dom.fControl.focus(); }
+    applyEntryLogEndorsedDate();
+    showToast(accounts.length > 1
+      ? `${accounts.length} accounts share ${areaKey}. Filled from one as a template; enter the Control Number for this account.`
+      : hasGridEdits
+        ? `${areaKey} has unsaved grid edits, so it was used as a template. Enter a new Control Number, or save the grid edits first.`
+        : `Filled from ${areaKey}. Enter a new Control Number for this account.`, 'info');
   }
 
   function populateFormFromRecord(r, areaVal) {
@@ -4790,9 +4908,21 @@
 
     if (dom.fSecuredDate) dom.fSecuredDate.value = formatDateMMDDYYYY(r['cr63f_secureddate'] || r['Secured Date']);
     if (dom.fSecuredEndorseDate) dom.fSecuredEndorseDate.value = formatDateMMDDYYYY(r['cr63f_securedendorsedate'] || r['Secured Endorse Date']);
-    if (dom.fEndorsedDate) dom.fEndorsedDate.value = formatDateMMDDYYYY(r['cr63f_endorseddate'] || r['Endorsed Date']);
+    if (dom.fEndorsedDate) {
+      dom.fEndorsedDate.value = formatDateMMDDYYYY(r['cr63f_endorseddate'] || r['Endorsed Date']);
+      dom.fEndorsedDate.title = '';
+    }
 
     drawerBaseline = collectDrawerData();
+    // Endorsed Date defaults to today (decision 2026-10-14). Filled after the baseline,
+    // so it is saved with the account's next save and dropped if the drawer is closed
+    // without saving. Only a truly blank date is filled; a stored 01/01/1900 placeholder
+    // is kept, the same rule as Update from References (decided 2026-10-08).
+    const storedEndorsed = String(r['cr63f_endorseddate'] ?? r['Endorsed Date'] ?? r['endorsed_date'] ?? '').trim();
+    if (dom.fEndorsedDate && ['', '-', 'None', 'null'].includes(storedEndorsed)) {
+      dom.fEndorsedDate.value = todayMMDDYYYY();
+      dom.fEndorsedDate.title = "Defaulted to today's date; saved when you save this account.";
+    }
     // Opening an account shows its stored values. The reference is compared, not applied.
     triggerLiveLookup(false, false);
   }
@@ -4816,6 +4946,9 @@
     if (!dom.drawerTitle) return;
     dom.drawerTitle.textContent = 'New LOA Entry / Log';
     dom.fRecordId.value = '';
+    drawerPicked = null;
+    drawerIsEntryLog = true;
+    lastAutoPickedArea = '';
 
     if (dom.areaIndexSuggestions) dom.areaIndexSuggestions.classList.add('hidden');
 
@@ -4843,12 +4976,8 @@
     if (dom.fSecuredDate) dom.fSecuredDate.value = '';
     if (dom.fSecuredEndorseDate) dom.fSecuredEndorseDate.value = '';
     
-    // Autofill Endorsed Date with current local date (MM/DD/YYYY)
-    const now = new Date();
-    const mm = String(now.getMonth() + 1).padStart(2, '0');
-    const dd = String(now.getDate()).padStart(2, '0');
-    const yyyy = now.getFullYear();
-    if (dom.fEndorsedDate) dom.fEndorsedDate.value = `${mm}/${dd}/${yyyy}`;
+    // Endorsed Date: today (MM/DD/YYYY).
+    applyEntryLogEndorsedDate();
 
     drawerBaseline = null;
     drawerStored = null;
@@ -4871,6 +5000,8 @@
       return;
     }
     const label = rec.cr63f_control1 || rec['Control Number'] || rec.cr63f_areaindex || rec['Area-Index'] || '';
+    drawerPicked = null;
+    drawerIsEntryLog = false;
     if (dom.drawerTitle) dom.drawerTitle.textContent = `Edit account ${label}`;
     if (dom.areaIndexSuggestions) dom.areaIndexSuggestions.classList.add('hidden');
     clearAutofillFields();
@@ -4914,9 +5045,15 @@
   // applyToForm = true: typing in the drawer. A match fills the amounts from the reference.
   // applyToForm = false: opening an account. Stored values stay; the badge reports whether the
   // reference differs from them.
+  // Each lookup gets a number; a reply that comes back after a newer lookup started
+  // (e.g. after switching to another Area-Index) is ignored, so it can never write the
+  // previous account's reference values over the current one.
+  let lookupSeq = 0;
   function triggerLiveLookup(clearOnNoMatch = true, applyToForm = true) {
     clearTimeout(debounceTimer);
+    const seq = ++lookupSeq;
     debounceTimer = setTimeout(async () => {
+      if (seq !== lookupSeq) return;
       const typeVal = dom.fType ? dom.fType.value.trim() : '';
       const indexNo = dom.fIndexNo ? dom.fIndexNo.value.trim() : '';
       const areaIndex = dom.fAreaIndex ? dom.fAreaIndex.value.trim() : '';
@@ -4934,6 +5071,7 @@
       try {
         const modeVal = dom.fMode ? dom.fMode.value.trim() : '';
         const res = await window.pywebview.api.lookup_finance(typeVal, indexNo, areaIndex, titleNo, modeVal);
+        if (seq !== lookupSeq) return;
         const storedTcp = dom.fTcp ? parseAmount(dom.fTcp.value) : 0;
         const storedDed = dom.fPaymentDeductible ? parseAmount(dom.fPaymentDeductible.value) : 0;
         let refDiffers = false;
@@ -4945,7 +5083,7 @@
             if (dom.fPercentPaid) dom.fPercentPaid.value = storedPercentText(res.percent_paid_formatted || res.percent_paid || '0');
             if (res.secured_date && dom.fSecuredDate) dom.fSecuredDate.value = formatDateMMDDYYYY(res.secured_date);
             if (res.secured_endorse_date && dom.fSecuredEndorseDate) dom.fSecuredEndorseDate.value = formatDateMMDDYYYY(res.secured_endorse_date);
-            if (res.endorsed_date && dom.fEndorsedDate) dom.fEndorsedDate.value = formatDateMMDDYYYY(res.endorsed_date);
+            if (res.endorsed_date && dom.fEndorsedDate && !drawerIsEntryLog) dom.fEndorsedDate.value = formatDateMMDDYYYY(res.endorsed_date);
             drawerAutofilled = true;
             updatePaymentMath();
           } else {
@@ -4963,6 +5101,7 @@
         if (areaIndex) {
           try {
             const convRes = await window.pywebview.api.lookup_conversion(areaIndex);
+            if (seq !== lookupSeq) return;
             if (convRes && convRes.matched && convRes.status) {
               convMatched = true;
               convType = convRes.match_type || 'Conversion';
