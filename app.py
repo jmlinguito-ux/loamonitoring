@@ -4116,6 +4116,14 @@ class Api:
             'direct_sale_balance': group_totals.get('DIRECT_SALE', {}).get('balance', 0.0),
             'lease_direct_balance': group_totals.get('LEASE_DIRECT', {}).get('balance', 0.0),
             'group_totals': group_totals,
+            # Decision 2026-10-14: payments made count every account (money already
+            # paid, including before turnover to partner); the balance to pay counts
+            # only what the company still owes: direct sale + secured lease.
+            # Turned-over balances are the partner's; rescinded balances are not owed.
+            'payments_made_total': sum(g['paid'] for g in group_totals.values()),
+            'balance_to_pay': sum(group_totals.get(g, {}).get('balance', 0.0) for g in ('DIRECT_SALE', 'LEASE_DIRECT')),
+            'turned_over_paid': sum(group_totals.get(g, {}).get('paid', 0.0) for g in ('STP_SALE', 'LEASE_STP')),
+            'turned_over_balance': sum(group_totals.get(g, {}).get('balance', 0.0) for g in ('STP_SALE', 'LEASE_STP')),
             'lease_direct_tcp': lease_direct_tcp,
             'lease_direct_paid': lease_direct_ded,
             'lease_direct_paid_percent_num': round((lease_direct_ded / lease_direct_tcp * 100) if lease_direct_tcp > 0 else 0.0, 1),
@@ -4328,6 +4336,7 @@ class Api:
         secured_delta = 0
         direct_ded_delta = 0.0      # direct sale only (decision 2026-10-14)
         direct_balance_delta = 0.0
+        own_balance_delta = 0.0     # direct sale + secured lease: the balance to pay
 
         for log in week_logs:
             acct = account_key(log)
@@ -4383,6 +4392,8 @@ class Api:
                     if _payment_group(entry['mode']) == 'DIRECT_SALE':
                         direct_ded_delta += new_ded
                         direct_balance_delta += max(0.0, new_tcp - new_ded)
+                    if _payment_group(entry['mode']) in ('DIRECT_SALE', 'LEASE_DIRECT'):
+                        own_balance_delta += max(0.0, new_tcp - new_ded)
                     if self._conversion_rank(log.get('cr63f_conversionstatus') or log.get('Conversion Status')) == 3:
                         secured_delta += 1
                 continue
@@ -4424,6 +4435,8 @@ class Api:
                     balance_delta += max(0.0, new_tcp - new_ded) - max(0.0, old_tcp - old_ded)
                     if _payment_group(entry['mode']) == 'DIRECT_SALE':
                         direct_balance_delta += max(0.0, new_tcp - new_ded) - max(0.0, old_tcp - old_ded)
+                    if _payment_group(entry['mode']) in ('DIRECT_SALE', 'LEASE_DIRECT'):
+                        own_balance_delta += max(0.0, new_tcp - new_ded) - max(0.0, old_tcp - old_ded)
             changes = []
             for fld, f in entry['fields'].items():
                 if _norm_text_str(f['old_value']) == _norm_text_str(f['new_value']):
@@ -4512,6 +4525,7 @@ class Api:
                 'balance_delta': round(balance_delta, 2),
                 'direct_sale_deductible_delta': round(direct_ded_delta, 2),
                 'direct_sale_balance_delta': round(direct_balance_delta, 2),
+                'own_balance_delta': round(own_balance_delta, 2),
                 'secured_delta': secured_delta,
                 'source_counts': {
                     k: sum(1 for a in changed_accounts if k in a['sources'])

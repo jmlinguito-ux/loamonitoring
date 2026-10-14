@@ -4143,26 +4143,24 @@
     let sumBal = 0;
     const shownRecords = state.filteredRecords !== undefined ? state.filteredRecords : state.records;
     const stagedOf = (r) => (state.stagedEdits && r.__id && state.stagedEdits[r.__id]) ? state.stagedEdits[r.__id] : {};
-    // Same groups as the Overview (app.py _payment_group). Turned over to partner
-    // (any Mode with STP) is left out of all four boxes; the rest are summed and
-    // broken down per group in the hover text (decisions 2026-10-14).
+    // Same groups as the Overview (app.py _payment_group). Decision 2026-10-14:
+    // records, contract price and payments count every account shown (payments made
+    // before turnover to partner are still money paid); Outstanding Balance counts only
+    // what the company still owes: direct sale + secured lease.
     const groupOf = (r) => {
       const staged = stagedOf(r);
       const mode = String(staged['new_mode'] ?? staged['Mode'] ?? r['new_mode'] ?? r['Mode'] ?? r['MODE'] ?? r['cr63f_mode'] ?? '').trim().toUpperCase();
       if (mode.includes('RESCIND')) return 'RESCINDED';
-      if (/\bSTP\b/.test(mode) || mode.includes('SOLD TO PARTNER')) return 'TURNED_OVER';
-      if (/\bLEASE\b/.test(mode) || /^SL\b/.test(mode)) return 'LEASE';
-      if (/\bSALE\b/.test(mode) || /^SS\b/.test(mode)) return 'DIRECT_SALE';
+      const stp = /\bSTP\b/.test(mode) || mode.includes('SOLD TO PARTNER');
+      if (/\bLEASE\b/.test(mode) || /^SL\b/.test(mode)) return stp ? 'LEASE_STP' : 'LEASE';
+      if (/\bSALE\b/.test(mode) || /^SS\b/.test(mode) || stp) return stp ? 'STP_SALE' : 'DIRECT_SALE';
       return 'OTHER';
     };
+    const BALANCE_GROUPS = ['DIRECT_SALE', 'LEASE'];
     const groups = {};
-    let excludedCount = 0;
-    let shownCount = 0;
 
     shownRecords.forEach(r => {
       const g = groupOf(r);
-      if (g === 'TURNED_OVER') { excludedCount++; return; }
-      shownCount++;
       const staged = stagedOf(r);
       const tcp = parseAmount(staged['Total Contract Price'] ?? staged['cr63f_totalcontractprice'] ?? r['Total Contract Price'] ?? r['cr63f_totalcontractprice']);
       const ded = parseAmount(staged['Total Payment Deductible to TCP'] ?? staged['cr63f_totalpaymentdeductibletotcp'] ?? r['Total Payment Deductible to TCP'] ?? r['cr63f_totalpaymentdeductibletotcp']);
@@ -4171,42 +4169,45 @@
       const bal = Math.max(0, tcp - ded);
       sumTcp += tcp;
       sumDed += ded;
-      sumBal += bal;
+      if (BALANCE_GROUPS.includes(g)) sumBal += bal;
       const t = groups[g] || (groups[g] = { count: 0, tcp: 0, ded: 0, bal: 0 });
       t.count++; t.tcp += tcp; t.ded += ded; t.bal += bal;
     });
 
-    if (dom.kpiRecordCount) dom.kpiRecordCount.textContent = shownCount.toLocaleString();
+    if (dom.kpiRecordCount) dom.kpiRecordCount.textContent = shownRecords.length.toLocaleString();
     if (dom.kpiTotalTcp) dom.kpiTotalTcp.textContent = formatPrice(sumTcp) || '₱0.00';
     if (dom.kpiTotalDeductible) dom.kpiTotalDeductible.textContent = formatPrice(sumDed) || '₱0.00';
     if (dom.kpiTotalBalance) dom.kpiTotalBalance.textContent = formatPrice(sumBal) || '₱0.00';
 
     const GROUP_LABELS = [
-      ['DIRECT_SALE', 'Direct sale', 'matches Overview'],
-      ['LEASE', 'Secured lease', ''],
-      ['RESCINDED', 'Rescinded', ''],
-      ['OTHER', 'Mode not sale or lease', '']
+      ['DIRECT_SALE', 'Direct sale'],
+      ['LEASE', 'Secured lease'],
+      ['STP_SALE', 'Turned over to partner – sale'],
+      ['LEASE_STP', 'Turned over to partner – lease'],
+      ['RESCINDED', 'Rescinded'],
+      ['OTHER', 'Mode not sale or lease']
     ];
     const present = GROUP_LABELS.filter(([g]) => groups[g] && groups[g].count);
-    const breakdown = (key, total) => present.map(([g, label, note]) =>
-      `${label}: ${formatPrice(groups[g][key]) || '₱0.00'}${note ? ` (${note})` : ''}`)
-      .concat([`Total: ${formatPrice(total) || '₱0.00'}`,
-        excludedCount ? `Excludes ${excludedCount.toLocaleString()} turned over to partner.` : 'Excludes turned over to partner.'])
-      .join('\n');
+    const money = (v) => formatPrice(v) || '₱0.00';
+    const breakdown = (key, total, counted, footer) => present.map(([g, label]) =>
+      `${label}: ${money(groups[g][key])}${counted.includes(g) ? '' : ' (not counted)'}`)
+      .concat([`Total: ${money(total)}`, '', footer]).join('\n');
     const setTip = (el, text) => { const card = el && el.closest('.kpi-card'); if (card) card.title = text; };
-    setTip(dom.kpiTotalTcp, breakdown('tcp', sumTcp));
-    setTip(dom.kpiTotalDeductible, breakdown('ded', sumDed));
-    setTip(dom.kpiTotalBalance, breakdown('bal', sumBal));
-    setTip(dom.kpiRecordCount, present.map(([g, label]) => `${label}: ${groups[g].count.toLocaleString()}`)
-      .concat([`Turned over to partner (not counted): ${excludedCount.toLocaleString()}`]).join('\n'));
+    const all = present.map(([g]) => g);
+    setTip(dom.kpiRecordCount, present.map(([g, label]) => `${label}: ${groups[g].count.toLocaleString()}`).join('\n'));
+    setTip(dom.kpiTotalTcp, breakdown('tcp', sumTcp, all, 'Every account shown is counted.'));
+    setTip(dom.kpiTotalDeductible, breakdown('ded', sumDed, all, 'Every payment made is counted, including payments made before turnover to partner.'));
+    setTip(dom.kpiTotalBalance, breakdown('bal', sumBal, BALANCE_GROUPS,
+      'Only direct sale and secured lease balances are yours to pay. Turned-over balances are the partner\'s; rescinded balances are not owed.'));
 
     const exclNote = document.getElementById('kpiExcludedNote');
     if (exclNote) {
-      const names = present.map(([, label]) => label.toLowerCase());
-      const included = names.length > 1 ? `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}` : (names[0] || '');
-      const lead = included ? included.charAt(0).toUpperCase() + included.slice(1) : '';
-      const excl = excludedCount ? `excludes ${excludedCount.toLocaleString()} turned over to partner` : 'excludes turned over to partner';
-      exclNote.textContent = lead ? `${lead} · ${excl}` : excl.charAt(0).toUpperCase() + excl.slice(1);
+      const turned = (groups.STP_SALE?.count || 0) + (groups.LEASE_STP?.count || 0);
+      const parts = [];
+      if (turned) parts.push(`${turned.toLocaleString()} turned over to partner`);
+      if (groups.RESCINDED?.count) parts.push(`${groups.RESCINDED.count.toLocaleString()} rescinded`);
+      if (groups.OTHER?.count) parts.push(`${groups.OTHER.count.toLocaleString()} with no sale/lease Mode`);
+      exclNote.textContent = parts.length ? `Balance excludes ${parts.join(' and ')}` : 'Balance: direct sale and secured lease';
     }
 
     const activeMode = (dom.modeFilterPanel || dom.modeFilter)?.value || 'ALL';
@@ -8895,37 +8896,43 @@ function renderLogsChunk(startIdx, count) {
       const edits = ws.field_edits || 0, adds = ws.new_entries || 0;
       dom.dashKpiWeeklyChangesSubtitle.innerHTML = `${edits.toLocaleString()} field edit${edits === 1 ? '' : 's'}` + (adds ? ` · <span class="ov-chip acc">${adds} new entr${adds === 1 ? 'y' : 'ies'}</span>` : '');
     }
-    // Money tiles count DIRECT SALE only, to match Payment progress (decision 2026-10-14).
-    // Secured lease is shown beside them; turned-over and rescinded totals are in the tooltip.
+    // Money tiles (decision 2026-10-14): Payments made count every account, including
+    // money paid before turnover to partner. Balance to pay counts only what the company
+    // still owes: direct sale + secured lease. Turned-over balances are the partner's and
+    // rescinded balances are not owed. The hover text lists every group.
     const gt = fb.group_totals || {};
     const gAmt = (g, k) => Number((gt[g] || {})[k]) || 0;
-    const moneyTip = (k, label) => [
-      `Direct sale: ${formatPesoExact(gAmt('DIRECT_SALE', k))}`,
-      `Secured lease: ${formatPesoExact(gAmt('LEASE_DIRECT', k))}`,
-      `Turned over to partner – sale: ${formatPesoExact(gAmt('STP_SALE', k))}`,
-      `Turned over to partner – lease: ${formatPesoExact(gAmt('LEASE_STP', k))}`,
-      `Rescinded: ${formatPesoExact(gAmt('RESCINDED', k))}`,
-      ...(gAmt('OTHER', k) ? [`Mode not sale or lease: ${formatPesoExact(gAmt('OTHER', k))}`] : []),
-      `All accounts: ${formatPesoExact(Object.keys(gt).reduce((t, g) => t + gAmt(g, k), 0))}`,
-      '', `Only direct sale is in the ${label} figure.`
-    ].join('\n');
-    const directPaid = Number(fb.direct_sale_paid) || 0;
-    const directBal = Number(fb.direct_sale_balance) || 0;
-    const leasePaid = gAmt('LEASE_DIRECT', 'paid');
-    const leaseBal = gAmt('LEASE_DIRECT', 'balance');
+    const MONEY_GROUPS = [
+      ['DIRECT_SALE', 'Direct sale (SECURED SALE, SS - FROM ROW)'],
+      ['LEASE_DIRECT', 'Secured lease'],
+      ['STP_SALE', 'Turned over to partner – sale'],
+      ['LEASE_STP', 'Turned over to partner – lease'],
+      ['RESCINDED', 'Rescinded'],
+      ['OTHER', 'Mode not sale or lease']
+    ];
+    const moneyTip = (k, counted, footer) => MONEY_GROUPS
+      .filter(([g]) => gt[g] && (gt[g].count || gAmt(g, k)))
+      .map(([g, label]) => `${label}: ${formatPesoExact(gAmt(g, k))}${counted.includes(g) ? '' : ' (not counted)'}`)
+      .concat(['', footer]).join('\n');
+    const paymentsMade = Number(fb.payments_made_total) || 0;
+    const balanceToPay = Number(fb.balance_to_pay) || 0;
+    const turnedPaid = Number(fb.turned_over_paid) || 0;
+    const turnedBal = Number(fb.turned_over_balance) || 0;
     if (dom.dashKpiTotalDeductible) {
-      dom.dashKpiTotalDeductible.textContent = formatPesoCompact(directPaid);
-      dom.dashKpiTotalDeductible.title = moneyTip('paid', 'payments deducted');
+      dom.dashKpiTotalDeductible.textContent = formatPesoCompact(paymentsMade);
+      dom.dashKpiTotalDeductible.title = moneyTip('paid', MONEY_GROUPS.map(([g]) => g),
+        'Every payment made is counted, including payments made before an account was turned over to partner.');
     }
     if (dom.dashKpiDeductibleDelta) dom.dashKpiDeductibleDelta.innerHTML =
-      `${deltaChip(ws.direct_sale_deductible_delta, { money: true, goodWhen: 'up' })}<span>this week${leasePaid ? ` · + ${escapeHtml(formatPesoCompact(leasePaid))} secured lease paid` : ''}</span>`;
+      `${deltaChip(ws.deductible_delta, { money: true, goodWhen: 'up' })}<span>this week${turnedPaid ? ` · incl. ${escapeHtml(formatPesoCompact(turnedPaid))} on accounts turned over to partner` : ''}</span>`;
     if (dom.dashKpiTotalBalance) {
-      dom.dashKpiTotalBalance.textContent = formatPesoCompact(directBal);
-      dom.dashKpiTotalBalance.title = moneyTip('balance', 'balance outstanding');
+      dom.dashKpiTotalBalance.textContent = formatPesoCompact(balanceToPay);
+      dom.dashKpiTotalBalance.title = moneyTip('balance', ['DIRECT_SALE', 'LEASE_DIRECT'],
+        'Only direct sale and secured lease balances are yours to pay. Turned-over balances are the partner\'s; rescinded balances are not owed.');
     }
     const balDelta = dashEl('dashKpiBalanceDelta');
     if (balDelta) balDelta.innerHTML =
-      `${deltaChip(ws.direct_sale_balance_delta, { money: true, goodWhen: 'down' })}<span>${(Number(fb.direct_sale_paid_percent_num) || 0).toFixed(1)}% paid${leaseBal ? ` · secured lease rent remaining ${escapeHtml(formatPesoCompact(leaseBal))}` : ''}</span>`;
+      `${deltaChip(ws.own_balance_delta, { money: true, goodWhen: 'down' })}<span>direct sale + secured lease${turnedBal ? ` · excl. ${escapeHtml(formatPesoCompact(turnedBal))} now with partner` : ''}</span>`;
     const sec = dashEl('dashKpiSecured');
     if (sec) sec.textContent = (conv.secured_count || 0).toLocaleString();
     const secD = dashEl('dashKpiSecuredDelta');
@@ -8943,52 +8950,93 @@ function renderLogsChunk(startIdx, count) {
     const pl = dashEl('dashPortfolioLabel');
     if (pl) pl.textContent = `${hasModeFilter ? String(data.selected_mode).toUpperCase() + ' · ' : 'All '}${(data.total_records || 0).toLocaleString()} accounts${hasWeek ? ' · as of ' + shortWeek(curWeek) : ''}`;
 
-    // Payment progress (decision 2026-10-13): Settled / Partially paid / Unpaid cover
-    // DIRECT SALE accounts only. STP sale (buyer owes the balance after turnover),
-    // leases (TCP = total rent over the term), rescinded and no-mode accounts are counted only.
+    // Payment progress (decisions 2026-10-13/14), kept to one line per group with the
+    // amounts in hover text. Headline %, bar and status rows: DIRECT SALE only
+    // (SECURED SALE, SS - FROM ROW). Secured lease, turned over to partner and
+    // rescinded are listed below as counts.
+    const peso = (v) => formatPesoExact(v);
     const directCount = fb.direct_sale_count || 0;
     const directPaidPct = Number(fb.direct_sale_paid_percent_num) || 0;
-    if (dom.dashFinancePaidRatio) dom.dashFinancePaidRatio.textContent = directCount ? `${directPaidPct.toFixed(1)}%` : '—';
+    const directTip = [
+      'Direct sale (SECURED SALE, SS - FROM ROW)',
+      `${directCount.toLocaleString()} lots`,
+      `Contract price: ${peso(gAmt('DIRECT_SALE', 'tcp'))}`,
+      `Paid: ${peso(gAmt('DIRECT_SALE', 'paid'))} (${directPaidPct.toFixed(1)}%)`,
+      `Balance to pay: ${peso(gAmt('DIRECT_SALE', 'balance'))}`
+    ].join('\n');
+    if (dom.dashFinancePaidRatio) {
+      dom.dashFinancePaidRatio.textContent = directCount ? `${directPaidPct.toFixed(1)}%` : '—';
+      dom.dashFinancePaidRatio.title = directTip;
+    }
     const finSub = dashEl('dashFinanceSub');
     if (finSub) {
       finSub.textContent = directCount
-        ? `of ${formatPesoCompact(fb.direct_sale_tcp || 0)} total contract price paid · direct sale, ${directCount.toLocaleString()} lots`
+        ? `direct sale paid · ${formatPesoCompact(fb.direct_sale_tcp || 0)} contract · ${formatPesoCompact(gAmt('DIRECT_SALE', 'balance'))} balance`
         : 'no direct sale accounts in this view';
-      finSub.title = formatPesoExact(fb.direct_sale_tcp || 0);
+      finSub.title = directTip;
     }
     const finSegs = [
-      { name: 'FULLY PAID (₱0 BALANCE)', count: fb.fully_paid_count || 0, pct: fb.fully_paid_percent_num || 0, cls: 'ov-c-pos' },
-      { name: 'PARTIALLY PAID (WITH BALANCE)', count: fb.partially_paid_count || 0, pct: fb.partially_paid_percent_num || 0, cls: 'ov-c-mid' },
-      { name: 'NO PAYMENT YET', count: fb.zero_paid_count || 0, pct: fb.zero_paid_percent_num || 0, cls: 'ov-c-none' }
+      { name: 'FULLY PAID', count: fb.fully_paid_count || 0, pct: fb.fully_paid_percent_num || 0, cls: 'ov-c-pos',
+        tip: 'Fully paid (₱0 balance): direct sale accounts whose payments cover the full contract price.' },
+      { name: 'PARTIALLY PAID', count: fb.partially_paid_count || 0, pct: fb.partially_paid_percent_num || 0, cls: 'ov-c-mid',
+        tip: 'Partially paid (with balance): direct sale accounts with some payment made and a balance still to pay.' },
+      { name: 'NO PAYMENT YET', count: fb.zero_paid_count || 0, pct: fb.zero_paid_percent_num || 0, cls: 'ov-c-none',
+        tip: 'No payment yet: direct sale accounts with nothing deducted from the contract price yet.' }
     ];
     renderStack(dashEl('dashFinanceStack'), directCount ? finSegs : [], 'lots');
-    // Leases (decision 2026-10-14): only SECURED LEASE is shown as UNPAID LEASE, a counted
-    // row below UNPAID, outside the paid/unpaid bar and headline %. Lease STP
-    // (SL - STP, SL - FROM LAND STP) sits in the not-tracked list.
+
     const leaseCount = fb.lease_direct_count || 0;
-    const leaseRow = leaseCount
-      ? `<div class="ov-li" title="Lease TCP is total rent over the lease term; % paid reflects time elapsed, not arrears."><span class="ov-sw ov-c-hatch"></span><span class="ov-nm">SECURED LEASE – DIRECT (RENT BASIS)</span><span class="ov-ct" title="${escapeHtml(formatPesoExact(fb.lease_direct_paid || 0))} paid of ${escapeHtml(formatPesoExact(fb.lease_direct_tcp || 0))}">${leaseCount.toLocaleString()} lots · ${(Number(fb.lease_direct_paid_percent_num) || 0).toFixed(1)}% paid of ${formatPesoCompact(fb.lease_direct_tcp || 0)}</span></div>`
+    const leasePct = Number(fb.lease_direct_paid_percent_num) || 0;
+    const turnedSale = fb.stp_sale_count || 0;
+    const turnedLease = fb.lease_stp_count || 0;
+    // Secured lease gets its own % paid (paid ÷ its contract price), shown as a
+    // second small progress block; it stays out of the direct sale % above because a
+    // lease contract price is total rent over the whole term (decision 2026-10-14).
+    const leaseTcp = gAmt('LEASE_DIRECT', 'tcp');
+    const leasePaid = gAmt('LEASE_DIRECT', 'paid');
+    const leaseBal = gAmt('LEASE_DIRECT', 'balance');
+    const leaseTip = [
+      `Secured lease: ${leaseCount.toLocaleString()} lots (rent basis)`,
+      `Contract price (total rent over the lease term): ${peso(leaseTcp)}`,
+      `Paid: ${peso(leasePaid)} (${leasePct.toFixed(1)}%)`,
+      `Balance (rent remaining): ${peso(leaseBal)}, counted in Balance to pay`,
+      '',
+      'A lease reaches 100% only at the end of its term, so a low % here does not mean rent is overdue.'
+    ].join('\n');
+    const leasePaidW = leaseTcp > 0 ? Math.min(100, (leasePaid / leaseTcp) * 100) : 0;
+    const leaseBlock = leaseCount
+      ? `<div class="ov-sub-prog ov-tip" title="${escapeHtml(leaseTip)}">`
+        + `<div class="ov-sub-hd"><b>${leasePct.toFixed(1)}%</b><span>secured lease paid · ${escapeHtml(formatPesoCompact(leaseTcp))} contract · ${escapeHtml(formatPesoCompact(leaseBal))} balance · ${leaseCount.toLocaleString()} lots</span></div>`
+        + `<div class="ov-stack ov-stack-sm" role="img" aria-label="Secured lease ${leasePct.toFixed(1)}% paid"><i class="ov-c-pos" style="width:${leasePaidW}%"></i></div>`
+        + `</div>`
       : '';
-    const untracked = [
-      { name: 'TURNED OVER TO PARTNER – SALE (BUYER PAYS BALANCE)', count: fb.stp_sale_count || 0,
-        tip: 'Turned over to partner: the buyer owes the balance after turnover, so these are not tracked as paid/unpaid.' },
-      { name: 'TURNED OVER TO PARTNER – LEASE', count: fb.lease_stp_count || 0,
-        tip: 'Lease turned over to partner: not tracked as paid/unpaid. Lease TCP is total rent over the lease term.' },
-      { name: 'RESCINDED CONTRACT', count: fb.rescinded_count || 0, tip: 'Rescinded accounts are not tracked as paid/unpaid.' },
-      { name: 'MODE NOT SALE OR LEASE', count: fb.other_count || 0, tip: 'Mode is blank or not a sale/lease.' }
-    ].filter(u => u.count > 0);
+    const others = [
+      { name: 'TURNED OVER TO PARTNER', count: turnedSale + turnedLease, right: `${(turnedSale + turnedLease).toLocaleString()} lots`,
+        tip: [
+          `Sale (SS - STP, SS - FROM LAND STP): ${turnedSale.toLocaleString()} lots · ${peso(gAmt('STP_SALE', 'paid'))} paid before turnover`,
+          `Lease (SL - STP, SL - FROM LAND STP): ${turnedLease.toLocaleString()} lots · ${peso(gAmt('LEASE_STP', 'paid'))} paid before turnover`,
+          `Remaining ${peso(gAmt('STP_SALE', 'balance') + gAmt('LEASE_STP', 'balance'))} is the partner's to pay (not counted).`
+        ].join('\n') },
+      { name: 'RESCINDED', count: fb.rescinded_count || 0, right: `${(fb.rescinded_count || 0).toLocaleString()} lots`,
+        tip: `Rescinded contracts: ${peso(gAmt('RESCINDED', 'paid'))} paid (counted in Payments made); remaining balance is not owed.` },
+      { name: 'MODE NOT SALE OR LEASE', count: fb.other_count || 0, right: `${(fb.other_count || 0).toLocaleString()} lots`,
+        tip: 'Mode is blank or not a sale or lease.' }
+    ].filter(o => o.count > 0);
     if (dom.dashFinanceBreakdownContainer) {
-      const tracked = directCount ? `<div class="ov-legend-sep ov-legend-sep-first">Direct sale payment status</div>` + renderLegend(finSegs, 'lots') : '';
-      const extra = untracked.length
-        ? `<div class="ov-legend-sep">Not tracked as paid/unpaid</div>` + untracked.map(u =>
-            `<div class="ov-li ov-li-muted" title="${escapeHtml(u.tip)}"><span class="ov-sw ov-c-hatch"></span><span class="ov-nm">${escapeHtml(u.name)}</span><span class="ov-ct">${u.count.toLocaleString()} lots</span></div>`).join('')
+      const statusRows = directCount ? finSegs.map(s =>
+        `<div class="ov-li ov-tip" title="${escapeHtml(`${s.tip}\n${s.count.toLocaleString()} of ${directCount.toLocaleString()} lots (${s.pct.toFixed(1)}%)`)}"><span class="ov-sw ${s.cls}"></span><span class="ov-nm">${escapeHtml(s.name)}</span><span class="ov-ct">${s.count.toLocaleString()} lots · ${s.pct.toFixed(1)}%</span></div>`).join('') : '';
+      const otherRows = others.length
+        ? `<div class="ov-legend-sep">Not in % paid · hover for details</div>` + others.map(o =>
+            `<div class="ov-li ov-li-muted ov-tip" title="${escapeHtml(o.tip)}"><span class="ov-sw ov-c-hatch"></span><span class="ov-nm">${escapeHtml(o.name)}</span><span class="ov-ct">${escapeHtml(o.right)}</span></div>`).join('')
         : '';
-      dom.dashFinanceBreakdownContainer.innerHTML = (tracked + (leaseRow ? `<div class="ov-legend-sep">Direct lease · not in % paid</div>` + leaseRow : '') + extra) || '<p class="ov-empty">No accounts in this view.</p>';
+      dom.dashFinanceBreakdownContainer.innerHTML = (statusRows + leaseBlock + otherRows) || '<p class="ov-empty">No accounts in this view.</p>';
     }
     if (dom.dashFinanceFooterStats) {
-      dom.dashFinanceFooterStats.innerHTML = directCount
-        ? `Direct sale average per lot: <span title="${escapeHtml(fb.avg_tcp_formatted || '')}">${escapeHtml(formatPesoCompact(parseAmount(fb.avg_tcp_formatted)))}</span> contract price · <span title="${escapeHtml(fb.avg_paid_formatted || '')}">${escapeHtml(formatPesoCompact(parseAmount(fb.avg_paid_formatted)))}</span> paid`
-        : 'STP sale, STP lease and rescinded accounts are counted only.';
+      const paidTip = moneyTip('paid', MONEY_GROUPS.map(([g]) => g), 'Every payment made is counted, including before turnover to partner.');
+      const balTip = moneyTip('balance', ['DIRECT_SALE', 'LEASE_DIRECT'], 'Only direct sale and secured lease balances are yours to pay.');
+      dom.dashFinanceFooterStats.innerHTML =
+        `<span class="ov-tip" title="${escapeHtml(paidTip)}">Payments made <b>${escapeHtml(formatPesoCompact(paymentsMade))}</b></span> · `
+        + `<span class="ov-tip" title="${escapeHtml(balTip)}">Balance to pay <b>${escapeHtml(formatPesoCompact(balanceToPay))}</b></span>`;
     }
 
     if (dom.dashConvSecuredRatio) dom.dashConvSecuredRatio.textContent = `${(Number(conv.secured_percent_num) || 0).toFixed(1)}%`;
