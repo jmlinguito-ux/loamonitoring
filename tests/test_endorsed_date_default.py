@@ -85,3 +85,25 @@ class TestEndorsedDateDefault(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class TestTitleNoOnlyEdit(unittest.TestCase):
+    """A save that changes only the Title No is written and logged (fixed 2026-10-14)."""
+
+    def test_title_only_change_is_saved_and_snapshot_logged(self):
+        app = _api()
+        app.dv_client = MagicMock()
+        app.dv_client.config = {}
+        app.dv_client.fetch_records.return_value = []
+        app.dv_client.get_record.return_value = None
+        app.dv_client.save_loa_record.return_value = {'success': True, 'id': 'r1', 'etag': 'W/"2"'}
+        app.dv_client.save_log_record.return_value = {'success': True, 'id': 'log-1'}
+        app.loa_records = [_record(cr63f_control1='TST-ABC-000101', cr63f_titleno='TCT-T-10002',
+                                   cr63f_endorseddate='03/15/2025', __etag='W/"1"')]
+        res = app.save_loa_record_entry({'cr63f_type': 'SALE', 'cr63f_areaindex': 'AI-1',
+                                         'cr63f_control1': 'TST-ABC-000101', 'cr63f_titleno': 'TCT-T-10001'}, 'r1')
+        self.assertTrue(res.get('success'), res.get('error'))
+        saved = [c[0][0] for c in app.dv_client.save_loa_record.call_args_list]
+        self.assertTrue(any(s.get('cr63f_titleno') == 'TCT-T-10001' for s in saved))
+        logged = [c[0][0] for c in app.dv_client.save_log_record.call_args_list]
+        self.assertTrue(any('TCT-T-10001' in str(l) for l in logged))

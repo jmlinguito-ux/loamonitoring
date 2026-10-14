@@ -299,16 +299,19 @@ def _record_mode(record: Dict[str, Any]) -> str:
 def _payment_group(mode: Any) -> str:
     """Payment group of a Mode (decision 2026-10-13/14).
 
-    DIRECT_SALE  SECURED SALE, SS - FROM ROW ...   tracked as paid/unpaid
-    STP_SALE     SS - STP, SS - FROM LAND STP      turned over to partner; buyer pays balance
-    LEASE_DIRECT SECURED LEASE                     rent basis
-    LEASE_STP    SL - STP, SL - FROM LAND STP      turned over to partner
-    RESCINDED    RESCINDED, SS - RESCINDED
+    DIRECT_SALE  SECURED SALE, SS - FROM LAND, SS - FROM ROW   tracked as paid/unpaid
+    STP_SALE     SS - STP, SS - FROM LAND STP                  turned over to partner; buyer pays balance
+    LEASE_DIRECT SECURED LEASE, SL - FROM LAND                 rent basis
+    LEASE_STP    SL - STP, SL - FROM LAND STP                  turned over to partner
+    NON_SP       SECURED SALE NON SP, SECURED LEASE NON SP     not in % paid (decision 2026-10-14)
+    RESCINDED    RESCINDED, SS - RESCINDED, SL - RESCINDED
     OTHER        blank or not a sale/lease Mode
     """
     m = str(mode or '').strip().upper()
     if 'RESCIND' in m:
         return 'RESCINDED'
+    if re.search(r'\bNON[\s-]*SP\b', m):
+        return 'NON_SP'
     is_stp = bool(re.search(r'\bSTP\b', m)) or 'SOLD TO PARTNER' in m
     mode_class = finance_mode_class(m)
     if mode_class == 'LEASE':
@@ -761,6 +764,24 @@ LOG_COMPARE_SPECS = [
     ('Type', ['cr63f_type', 'Type', 'TYPE'], 'text'),
     ('Index No', ['cr63f_indexno', 'Index No', 'INDEX NO'], 'text'),
 ]
+
+
+def _sync_field_aliases(merged: Dict[str, Any], changes: Dict[str, Any]) -> None:
+    """Give every name of a changed field (logical and display) the new value.
+
+    A loaded record holds several names for one field ('cr63f_registeredowner',
+    'Registered Owner', ...). A save that set only one of them left the others
+    holding the old value, and a cleared field then read back as the old value
+    in the audit snapshot, so the change never reached Entry Logs.
+    """
+    for _canon, keys, _type in LOG_COMPARE_SPECS:
+        sent = [key for key in keys if key in changes]
+        if not sent:
+            continue
+        value = changes[sent[0]]
+        for key in keys:
+            if key in merged or key in changes:
+                merged[key] = value
 
 
 def _norm_currency_str(val: Any) -> str:
@@ -3435,6 +3456,7 @@ class Api:
 
                 merged_rec = dict(found_rec)
                 merged_rec.update(record_data)
+                _sync_field_aliases(merged_rec, record_data)
                 # Balance and % Paid are always derived here, never taken from
                 # the client, so a manual save cannot store a stale value.
                 derived = _derived_payment_fields(merged_rec)
@@ -3641,6 +3663,7 @@ class Api:
                 return
             merged_rec = dict(orig_rec)
             merged_rec.update(fields)
+            _sync_field_aliases(merged_rec, fields)
             # Any staged change to a payment field (TCP, Deductible, or a typed
             # Balance / % Paid) recalculates all four on the server, so the
             # stored values always follow the saved amounts.
@@ -3650,9 +3673,12 @@ class Api:
                     fields.update(derived)
                     merged_rec.update(derived)
 
-            area_idx = orig_rec.get('cr63f_areaindex') or orig_rec.get('Area-Index') or fields.get('cr63f_areaindex') or fields.get('Area-Index') or rec_id
-            index_no = orig_rec.get('cr63f_indexno') or orig_rec.get('Index No') or fields.get('cr63f_indexno') or fields.get('Index No') or ''
-            title_no = orig_rec.get('cr63f_titleno') or orig_rec.get('Title No') or fields.get('cr63f_titleno') or fields.get('Title No') or ''
+            # The snapshot carries the values AFTER this save. Stamping it with the
+            # row's old AREA-INDEX / Index No / Title No hid a change to those fields
+            # from Entry Logs (the diff saw the old value on both sides).
+            area_idx = str(_get_field_val(fields, ['cr63f_areaindex', 'Area-Index']) or _get_field_val(merged_rec, ['cr63f_areaindex', 'Area-Index']) or '')
+            index_no = str((_get_field_val(fields, ['cr63f_indexno', 'Index No']) or _get_field_val(merged_rec, ['cr63f_indexno', 'Index No'])) or '')
+            title_no = str((_get_field_val(fields, ['cr63f_titleno', 'Title No']) or _get_field_val(merged_rec, ['cr63f_titleno', 'Title No'])) or '')
             # Audit work week is based on the log/save time, not Endorsed Date.
             ww = get_work_week(datetime.now())
 
@@ -4061,6 +4087,7 @@ class Api:
         lease_direct_ded = 0.0
         lease_stp_count = 0
         rescinded_count = 0
+        non_sp_count = 0
         other_count = 0
 
         group_totals: Dict[str, Dict[str, float]] = {}
@@ -4076,6 +4103,9 @@ class Api:
             is_stp = bool(re.search(r'\bSTP\b', mode)) or 'SOLD TO PARTNER' in mode
             if 'RESCIND' in mode:
                 rescinded_count += 1
+                continue
+            if _payment_group(mode) == 'NON_SP':
+                non_sp_count += 1
                 continue
             if mode_class == 'LEASE':
                 if is_stp:
@@ -4145,6 +4175,7 @@ class Api:
             'lease_direct_paid_percent_num': round((lease_direct_ded / lease_direct_tcp * 100) if lease_direct_tcp > 0 else 0.0, 1),
             'lease_stp_count': lease_stp_count,
             'rescinded_count': rescinded_count,
+            'non_sp_count': non_sp_count,
             'other_count': other_count,
             'avg_tcp_formatted': f"₱{format_currency(avg_tcp)}",
             'avg_paid_formatted': f"₱{format_currency(avg_ded)}",

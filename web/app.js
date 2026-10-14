@@ -146,13 +146,16 @@
     'SL - STP',
     'SS - FROM LAND STP',
     'SL - FROM LAND STP',
+    'SS - FROM LAND',
+    'SL - FROM LAND',
     'SS - FROM ROW',
     'SS - RESCINDED',
+    'SL - RESCINDED',
     'TO BE IDENTIFIED',
     'RESCINDED',
     'NOT USABLE',
-    'SECURED SALE - NON SP',
-    'SECURED LEASE - NON SP'
+    'SECURED SALE NON SP',
+    'SECURED LEASE NON SP'
   ];
 
   const TYPE_OPTIONS = [
@@ -3646,6 +3649,9 @@
 
   function filterAndRenderRecords() {
     const q = dom.searchInput.value.toLowerCase().trim();
+    // Comma-separated search (decision 2026-10-14): "TST-ABC-000101, TST-248" shows the
+    // records that match ANY of the terms. A single term works as before.
+    const searchTerms = q.split(',').map(t => t.trim()).filter(Boolean);
     const typeFilt = dom.typeFilter.value;
     const modeFilt = (dom.modeFilterPanel || dom.modeFilter)?.value || 'ALL';
     const colFilterKeys = Object.keys(state.columnFilters).filter(k => !!state.columnFilters[k]);
@@ -3674,8 +3680,9 @@
         if (!val.includes(query)) return false;
       }
 
-      if (!q) return true;
-      return Object.values(r).some(v => String(v).toLowerCase().includes(q));
+      if (!searchTerms.length) return true;
+      const haystack = Object.values(r).map(v => String(v).toLowerCase()).join('\u0001');
+      return searchTerms.some(t => haystack.includes(t));
     });
 
     if (state.sortCol && state.sortDir) {
@@ -4157,6 +4164,7 @@
       const staged = stagedOf(r);
       const mode = String(staged['new_mode'] ?? staged['Mode'] ?? r['new_mode'] ?? r['Mode'] ?? r['MODE'] ?? r['cr63f_mode'] ?? '').trim().toUpperCase();
       if (mode.includes('RESCIND')) return 'RESCINDED';
+      if (/\bNON[\s-]*SP\b/.test(mode)) return 'NON_SP';
       const stp = /\bSTP\b/.test(mode) || mode.includes('SOLD TO PARTNER');
       if (/\bLEASE\b/.test(mode) || /^SL\b/.test(mode)) return stp ? 'LEASE_STP' : 'LEASE';
       if (/\bSALE\b/.test(mode) || /^SS\b/.test(mode) || stp) return stp ? 'STP_SALE' : 'DIRECT_SALE';
@@ -4190,6 +4198,7 @@
       ['LEASE', 'Secured lease'],
       ['STP_SALE', 'Turned over to partner – sale'],
       ['LEASE_STP', 'Turned over to partner – lease'],
+      ['NON_SP', 'Non-SP'],
       ['RESCINDED', 'Rescinded'],
       ['OTHER', 'Mode not sale or lease']
     ];
@@ -4204,13 +4213,14 @@
     setTip(dom.kpiTotalTcp, breakdown('tcp', sumTcp, all, 'Every account shown is counted.'));
     setTip(dom.kpiTotalDeductible, breakdown('ded', sumDed, all, 'Every payment made is counted, including payments made before turnover to partner.'));
     setTip(dom.kpiTotalBalance, breakdown('bal', sumBal, BALANCE_GROUPS,
-      'Only direct sale and secured lease balances are yours to pay. Turned-over balances are the partner\'s; rescinded balances are not owed.'));
+      'Only direct sale and secured lease balances are yours to pay. Turned-over balances are the partner\'s; non-SP and rescinded balances are not counted.'));
 
     const exclNote = document.getElementById('kpiExcludedNote');
     if (exclNote) {
       const turned = (groups.STP_SALE?.count || 0) + (groups.LEASE_STP?.count || 0);
       const parts = [];
       if (turned) parts.push(`${turned.toLocaleString()} turned over to partner`);
+      if (groups.NON_SP?.count) parts.push(`${groups.NON_SP.count.toLocaleString()} non-SP`);
       if (groups.RESCINDED?.count) parts.push(`${groups.RESCINDED.count.toLocaleString()} rescinded`);
       if (groups.OTHER?.count) parts.push(`${groups.OTHER.count.toLocaleString()} with no sale/lease Mode`);
       exclNote.textContent = parts.length ? `Balance excludes ${parts.join(' and ')}` : 'Balance: direct sale and secured lease';
@@ -5252,10 +5262,13 @@
     // An existing account sends only the fields changed in the drawer (plus its identity
     // keys). A field the drawer never touched stays exactly as stored, so opening an account
     // and saving another field cannot rewrite its amounts, status or Mode.
+    // Identity fields (Type, Index No, AREA-INDEX, Title No, Control Number) count as changes
+    // too: they used to be skipped here, so editing only the Title No said "No changes to
+    // save" and nothing was written (fixed 2026-10-14).
     let payload = recordData;
     if (!isNew && drawerBaseline) {
       const changedKeys = Object.keys(recordData).filter(k =>
-        !DRAWER_IDENTITY_KEYS.includes(k) && String(recordData[k]) !== String(drawerBaseline[k] ?? ''));
+        String(recordData[k] ?? '').trim() !== String(drawerBaseline[k] ?? '').trim());
       if (changedKeys.length === 0) {
         showToast('No changes to save.', 'info');
         return;
@@ -9062,10 +9075,11 @@ function renderLogsChunk(startIdx, count) {
     const gt = fb.group_totals || {};
     const gAmt = (g, k) => Number((gt[g] || {})[k]) || 0;
     const MONEY_GROUPS = [
-      ['DIRECT_SALE', 'Direct sale (SECURED SALE, SS - FROM ROW)'],
-      ['LEASE_DIRECT', 'Secured lease'],
+      ['DIRECT_SALE', 'Direct sale (SECURED SALE, SS - FROM LAND, SS - FROM ROW)'],
+      ['LEASE_DIRECT', 'Secured lease (SECURED LEASE, SL - FROM LAND)'],
       ['STP_SALE', 'Turned over to partner – sale'],
       ['LEASE_STP', 'Turned over to partner – lease'],
+      ['NON_SP', 'Non-SP (SECURED SALE NON SP, SECURED LEASE NON SP)'],
       ['RESCINDED', 'Rescinded'],
       ['OTHER', 'Mode not sale or lease']
     ];
@@ -9087,7 +9101,7 @@ function renderLogsChunk(startIdx, count) {
     if (dom.dashKpiTotalBalance) {
       dom.dashKpiTotalBalance.textContent = formatPesoCompact(balanceToPay);
       dom.dashKpiTotalBalance.title = moneyTip('balance', ['DIRECT_SALE', 'LEASE_DIRECT'],
-        'Only direct sale and secured lease balances are yours to pay. Turned-over balances are the partner\'s; rescinded balances are not owed.');
+        'Only direct sale and secured lease balances are yours to pay. Turned-over balances are the partner\'s; non-SP and rescinded balances are not counted.');
     }
     const balDelta = dashEl('dashKpiBalanceDelta');
     if (balDelta) balDelta.innerHTML =
@@ -9117,7 +9131,7 @@ function renderLogsChunk(startIdx, count) {
     const directCount = fb.direct_sale_count || 0;
     const directPaidPct = Number(fb.direct_sale_paid_percent_num) || 0;
     const directTip = [
-      'Direct sale (SECURED SALE, SS - FROM ROW)',
+      'Direct sale (SECURED SALE, SS - FROM LAND, SS - FROM ROW)',
       `${directCount.toLocaleString()} lots`,
       `Contract price: ${peso(gAmt('DIRECT_SALE', 'tcp'))}`,
       `Paid: ${peso(gAmt('DIRECT_SALE', 'paid'))} (${directPaidPct.toFixed(1)}%)`,
@@ -9155,7 +9169,7 @@ function renderLogsChunk(startIdx, count) {
     const leasePaid = gAmt('LEASE_DIRECT', 'paid');
     const leaseBal = gAmt('LEASE_DIRECT', 'balance');
     const leaseTip = [
-      `Secured lease: ${leaseCount.toLocaleString()} lots (rent basis)`,
+      `Secured lease (SECURED LEASE, SL - FROM LAND): ${leaseCount.toLocaleString()} lots (rent basis)`,
       `Contract price (total rent over the lease term): ${peso(leaseTcp)}`,
       `Paid: ${peso(leasePaid)} (${leasePct.toFixed(1)}%)`,
       `Balance (rent remaining): ${peso(leaseBal)}, counted in Balance to pay`,
@@ -9176,8 +9190,10 @@ function renderLogsChunk(startIdx, count) {
           `Lease (SL - STP, SL - FROM LAND STP): ${turnedLease.toLocaleString()} lots · ${peso(gAmt('LEASE_STP', 'paid'))} paid before turnover`,
           `Remaining ${peso(gAmt('STP_SALE', 'balance') + gAmt('LEASE_STP', 'balance'))} is the partner's to pay (not counted).`
         ].join('\n') },
+      { name: 'NON-SP', count: fb.non_sp_count || 0, right: `${(fb.non_sp_count || 0).toLocaleString()} lots`,
+        tip: `Non-SP (SECURED SALE NON SP, SECURED LEASE NON SP): ${peso(gAmt('NON_SP', 'paid'))} paid (counted in Payments made); balance ${peso(gAmt('NON_SP', 'balance'))} not counted in Balance to pay.` },
       { name: 'RESCINDED', count: fb.rescinded_count || 0, right: `${(fb.rescinded_count || 0).toLocaleString()} lots`,
-        tip: `Rescinded contracts: ${peso(gAmt('RESCINDED', 'paid'))} paid (counted in Payments made); remaining balance is not owed.` },
+        tip: `Rescinded (RESCINDED, SS - RESCINDED, SL - RESCINDED): ${peso(gAmt('RESCINDED', 'paid'))} paid (counted in Payments made); remaining balance is not owed.` },
       { name: 'MODE NOT SALE OR LEASE', count: fb.other_count || 0, right: `${(fb.other_count || 0).toLocaleString()} lots`,
         tip: 'Mode is blank or not a sale or lease.' }
     ].filter(o => o.count > 0);
@@ -9247,7 +9263,8 @@ function renderLogsChunk(startIdx, count) {
         modes.splice(modes.findIndex(m => modeName(m) === 'SECURED SALE') + 1, 0, lease);
       }
       if (dom.dashModeTotalLots) dom.dashModeTotalLots.textContent = hasModeFilter ? 'Click again to clear' : 'Click to filter';
-      dom.dashModeBarsContainer.innerHTML = modes.length ? modes.slice(0, 8).map(m => {
+      // Every mode is listed (the card scrolls); it used to stop at the 8 largest (2026-10-14).
+      dom.dashModeBarsContainer.innerHTML = modes.length ? modes.map(m => {
         const active = Boolean(data.selected_mode && data.selected_mode.toUpperCase() === String(m.mode).toUpperCase());
         const muted = /TO BE IDENTIFIED|UNSET|NONE/.test(String(m.mode).toUpperCase());
         return `<button type="button" class="ov-mode ${active ? 'active' : ''} ${hasModeFilter && !active ? 'dim' : ''}" data-mode-name="${escapeHtml(m.mode)}" aria-pressed="${active}">
