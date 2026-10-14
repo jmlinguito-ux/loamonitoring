@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1100" height="680" viewBox="0 0 1100 680">
+<rect width="100%" height="100%" rx="22" fill="#F8FAFC"/>
+<text x="95" y="58" font-family="Segoe UI,Arial,sans-serif" font-size="34" font-weight="700" fill="#0F172A">Sourcing: match rate by province</text>
+<text x="95" y="94" font-family="Segoe UI,Arial,sans-serif" font-size="17" fill="#64748B">Group and team match rate | provinces ordered by record volume</text>
+<line x1="110" y1="540.0" x2="1025" y2="540.0" stroke="#CBD5E1"/>
+<text x="94" y="545.0" text-anchor="end" font-family="Segoe UI,Arial,sans-serif" font-size="14" font-weight="400" fill="#64748B">0%</text>
+<line x1="110" y1="462.0" x2="1025" y2="462.0" stroke="#CBD5E1"/>
+<text x="94" y="467.0" text-anchor="end" font-family="Segoe UI,Arial,sans-serif" font-size="14" font-weight="400" fill="#64748B">20%</text>
+<line x1="110" y1="384.0" x2="1025" y2="384.0" stroke="#CBD5E1"/>
+<text x="94" y="389.0" text-anchor="end" font-family="Segoe UI,Arial,sans-serif" font-size="14" font-weight="400" fill="#64748B">40%</text>
+<line x1="110" y1="306.0" x2="1025" y2="306.0" stroke="#CBD5E1"/>
+<text x="94" y="311.0" text-anchor="end" font-family="Segoe UI,Arial,sans-serif" font-size="14" font-weight="400" fill="#64748B">60%</text>
+<line x1="110" y1="228.0" x2="1025" y2="228.0" stroke="#CBD5E1"/>
+<text x="94" y="233.0" text-anchor="end" font-family="Segoe UI,Arial,sans-serif" font-size="14" font-weight="400" fill="#64748B">80%</text>
+<line x1="110" y1="150.0" x2="1025" y2="150.0" stroke="#CBD5E1"/>
+<text x="94" y="155.0" text-anchor="end" font-family="Segoe UI,Arial,sans-serif" font-size="14" font-weight="400" fill="#64748B">100%</text>
+<rect x="151.8" y="185.9" width="68.6" height="354.1" rx="7" fill="#2563EB"/>
+<text x="186.0625" y="175.89380530973455" text-anchor="middle" font-family="Segoe UI,Arial,sans-serif" font-size="14" font-weight="700" fill="#2563EB">90.8%</text>
+<rect x="228.4" y="232.1" width="68.6" height="307.9" rx="7" fill="#0F766E"/>
+<text x="262.6875" y="222.14159292035396" text-anchor="middle" font-family="Segoe UI,Arial,sans-serif" font-size="14" font-weight="700" fill="#0F766E">78.9%</text>
+<text x="224.375" y="584" text-anchor="middle" font-family="Segoe UI,Arial,sans-serif" font-size="14" font-weight="400" fill="#0F172A">Quezon</text>
+<text x="224.375" y="605" text-anchor="middle" font-family="Segoe UI,Arial,sans-serif" font-size="12" font-weight="400" fill="#64748B">n=2,260</text>
+<rect x="380.5" y="188.8" width="68.6" height="351.2" rx="7" fill="#2563EB"/>
+<text x="414.8125" y="178.75776397515523" text-anchor="middle" font-family="Segoe UI,Arial,sans-serif" font-size="14" font-weight="700" fill="#2563EB">90.1%</text>
+<rect x="457.1" y="265.8" width="68.6" height="274.2" rx="7" fill="#0F766E"/>
+<text x="491.4375" y="255.78881987577637" text-anchor="middle" font-family="Segoe UI,Arial,sans-serif" font-size="14" font-weight="700" fill="#0F766E">70.3%</text>
+<text x="453.125" y="584" text-anchor="middle" font-family="Segoe UI,Arial,sans-serif" font-size="14" font-weight="400" fill="#0F172A">Tarlac</text>
+<text x="453.125" y="605" text-anchor="middle" font-family="Segoe UI,Arial,sans-serif" font-size="12" font-weight="400" fill="#64748B">n=805</text>
+<rect x="609.2" y="150.7" width="68.6" height="389.3" rx="7" fill="#2563EB"/>
+<text x="643.5625" y="140.74003795066415" text-anchor="middle" font-family="Segoe UI,Arial,sans-serif" font-size="14" font-weight="700" fill="#2563EB">99.8%</text>
+<rect x="685.9" y="150.7" width="68.6" height="389.3" rx="7" fill="#0F766E"/>
+<text x="720.1875" y="140.74003795066415" text-anchor="middle" font-family="Segoe UI,Arial,sans-serif" font-size="14" font-weight="700" fill="#0F766E">99.8%</text>
+<text x="681.875" y="584" text-anchor="middle" font-family="Segoe UI,Arial,sans-serif" font-size="14" font-weight="400" fill="#0F172A">Pangasinan</text>
+<text x="681.875" y="605" text-anchor="middle" font-family="Segoe UI,Arial,sans-serif" font-size="12" font-weight="400" fill="#64748B">n=527</text>
+<rect x="838.0" y="183.8" width="68.6" height="356.2" rx="7" fill="#2563EB"/>
+<text x="872.3125" y="173.75" text-anchor="middle" font-family="Segoe UI,Arial,sans-serif" font-size="14" font-weight="700" fill="#2563EB">91.3%</text>
+<rect x="914.6" y="183.8" width="68.6" height="356.2" rx="7" fill="#0F766E"/>
+<text x="948.9375" y="173.75" text-anchor="middle" font-family="Segoe UI,Arial,sans-serif" font-size="14" font-weight="700" fill="#0F766E">91.3%</text>
+<text x="910.625" y="584" text-anchor="middle" font-family="Segoe UI,Arial,sans-serif" font-size="14" font-weight="400" fill="#0F172A">Zambales</text>
+<text x="910.625" y="605" text-anchor="middle" font-family="Segoe UI,Arial,sans-serif" font-size="12" font-weight="400" fill="#64748B">n=208</text>
+<rect x="770" y="122" width="16" height="16" rx="4" fill="#2563EB"/>
+<text x="795" y="136" text-anchor="start" font-family="Segoe UI,Arial,sans-serif" font-size="14" font-weight="600" fill="#0F172A">Group</text>
+<rect x="880" y="122" width="16" height="16" rx="4" fill="#0F766E"/>
+<text x="905" y="136" text-anchor="start" font-family="Segoe UI,Arial,sans-serif" font-size="14" font-weight="600" fill="#0F172A">Team</text>
+<text x="110" y="654" text-anchor="start" font-family="Segoe UI,Arial,sans-serif" font-size="14" font-weight="400" fill="#64748B">Province and total source records</text>
+</svg>

@@ -1,0 +1,438 @@
+{
+  "schema": "openai.presentation.layout/v4",
+  "unit": "px",
+  "slide": {
+    "aid": "sl/cogr6e",
+    "id": "cogr6e",
+    "slide": 1,
+    "layoutId": "5507abf9-f8e4-48ba-b2d8-80bd48acf35b",
+    "layoutName": "Title Slide",
+    "layoutType": "title",
+    "masterLayoutId": "bb477aa7-7376-4215-bf6e-1b9e542d918e",
+    "masterLayoutName": "Master",
+    "backgroundColor": "#102A43",
+    "frame": {
+      "left": 0,
+      "top": 0,
+      "width": 1280,
+      "height": 720
+    }
+  },
+  "theme": {
+    "colorSchemeName": "ChatGPT",
+    "colors": {
+      "accent1": "#156082",
+      "accent2": "#E97132",
+      "accent3": "#196B24",
+      "accent4": "#0F9ED5",
+      "accent5": "#A02B93",
+      "accent6": "#4EA72E",
+      "bg1": "#FFFFFF",
+      "bg2": "#000000",
+      "tx1": "#1F1F1F",
+      "tx2": "#FFFFFF",
+      "dk1": "#000000",
+      "lt1": "#FFFFFF",
+      "dk2": "#0E2841",
+      "lt2": "#E8E8E8",
+      "hlink": "#467886",
+      "folHlink": "#96607D"
+    },
+    "typefaces": [
+      "Arial"
+    ]
+  },
+  "inheritedLayers": [
+    {
+      "scope": "layout",
+      "id": "5507abf9-f8e4-48ba-b2d8-80bd48acf35b",
+      "name": "Title Slide",
+      "type": "title",
+      "parentLayoutId": "bb477aa7-7376-4215-bf6e-1b9e542d918e",
+      "elements": []
+    },
+    {
+      "scope": "master",
+      "id": "bb477aa7-7376-4215-bf6e-1b9e542d918e",
+      "name": "Master",
+      "type": "master",
+      "elements": []
+    }
+  ],
+  "elements": [
+    {
+      "order": 1,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/cr6pg7y1",
+      "id": "1",
+      "bbox": [
+        82,
+        100,
+        8,
+        500
+      ],
+      "geometry": "rect",
+      "fillColor": "#28B5D7",
+      "lineWidth": 0
+    },
+    {
+      "order": 2,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/rqd8n2xg",
+      "id": "2",
+      "bbox": [
+        124,
+        170,
+        1010,
+        100
+      ],
+      "geometry": "rect",
+      "text": "LOA Monitoring Tool",
+      "textPreview": "LOA Monitoring Tool",
+      "resolvedFontSize": 66,
+      "resolvedTextStyle": {
+        "anchor": 2,
+        "fontSize": 66,
+        "typeface": "Arial",
+        "color": "#FFFFFF",
+        "bold": true,
+        "alignment": "left",
+        "verticalAlignment": "middle",
+        "wrap": "square",
+        "autoFit": "shrinkText",
+        "autoFitScale": 1,
+        "insets": {
+          "top": 0,
+          "right": 0,
+          "bottom": 0,
+          "left": 0
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "LOA Monitoring Tool"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "LOA Monitoring Tool",
+          "resolvedTextStyle": {
+            "fontSize": 66,
+            "typeface": "Arial",
+            "color": "#FFFFFF",
+            "bold": true,
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "LOA Monitoring Tool",
+              "fontSize": 66,
+              "typeface": "Arial",
+              "color": "#FFFFFF",
+              "bold": true,
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 3,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/qp47exgv",
+      "id": "3",
+      "bbox": [
+        128,
+        286,
+        950,
+        58
+      ],
+      "geometry": "rect",
+      "text": "Introduction, core functions, and process flow",
+      "textPreview": "Introduction, core functions, and process flow",
+      "resolvedFontSize": 31,
+      "resolvedTextStyle": {
+        "anchor": 2,
+        "fontSize": 31,
+        "typeface": "Arial",
+        "color": "#C6D8E5",
+        "alignment": "left",
+        "verticalAlignment": "middle",
+        "wrap": "square",
+        "autoFit": "shrinkText",
+        "autoFitScale": 1,
+        "insets": {
+          "top": 0,
+          "right": 0,
+          "bottom": 0,
+          "left": 0
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Introduction, core functions, and process flow"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Introduction, core functions, and process flow",
+          "resolvedTextStyle": {
+            "fontSize": 31,
+            "typeface": "Arial",
+            "color": "#C6D8E5",
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Introduction, core functions, and process flow",
+              "fontSize": 31,
+              "typeface": "Arial",
+              "color": "#C6D8E5",
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 4,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/povqlsfa",
+      "id": "4",
+      "bbox": [
+        128,
+        386,
+        730,
+        0
+      ],
+      "geometry": "line",
+      "lineColor": "#42647D",
+      "lineWidth": 2
+    },
+    {
+      "order": 5,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/43mpcnyp",
+      "id": "5",
+      "bbox": [
+        128,
+        414,
+        600,
+        42
+      ],
+      "geometry": "rect",
+      "text": "Land operations workspace",
+      "textPreview": "Land operations workspace",
+      "resolvedFontSize": 25,
+      "resolvedTextStyle": {
+        "anchor": 2,
+        "fontSize": 25,
+        "typeface": "Arial",
+        "color": "#28B5D7",
+        "bold": true,
+        "alignment": "left",
+        "verticalAlignment": "middle",
+        "wrap": "square",
+        "autoFit": "shrinkText",
+        "autoFitScale": 1,
+        "insets": {
+          "top": 0,
+          "right": 0,
+          "bottom": 0,
+          "left": 0
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Land operations workspace"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Land operations workspace",
+          "resolvedTextStyle": {
+            "fontSize": 25,
+            "typeface": "Arial",
+            "color": "#28B5D7",
+            "bold": true,
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Land operations workspace",
+              "fontSize": 25,
+              "typeface": "Arial",
+              "color": "#28B5D7",
+              "bold": true,
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 6,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/32d8jix4",
+      "id": "6",
+      "bbox": [
+        128,
+        464,
+        760,
+        38
+      ],
+      "geometry": "rect",
+      "text": "Land Master  /  Reference data  /  Entry Logs",
+      "textPreview": "Land Master  /  Reference data  /  Entry Logs",
+      "resolvedFontSize": 22,
+      "resolvedTextStyle": {
+        "anchor": 2,
+        "fontSize": 22,
+        "typeface": "Arial",
+        "color": "#C6D8E5",
+        "alignment": "left",
+        "verticalAlignment": "middle",
+        "wrap": "square",
+        "autoFit": "shrinkText",
+        "autoFitScale": 1,
+        "insets": {
+          "top": 0,
+          "right": 0,
+          "bottom": 0,
+          "left": 0
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Land Master  /  Reference data  /  Entry Logs"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Land Master  /  Reference data  /  Entry Logs",
+          "resolvedTextStyle": {
+            "fontSize": 22,
+            "typeface": "Arial",
+            "color": "#C6D8E5",
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Land Master  /  Reference data  /  Entry Logs",
+              "fontSize": 22,
+              "typeface": "Arial",
+              "color": "#C6D8E5",
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 7,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/2147adgj",
+      "id": "7",
+      "bbox": [
+        128,
+        606,
+        900,
+        30
+      ],
+      "geometry": "rect",
+      "text": "A practical guide to reviewing accounts and recording changes",
+      "textPreview": "A practical guide to reviewing accounts and recording changes",
+      "resolvedFontSize": 18,
+      "resolvedTextStyle": {
+        "anchor": 2,
+        "fontSize": 18,
+        "typeface": "Arial",
+        "color": "#9DB5C7",
+        "alignment": "left",
+        "verticalAlignment": "middle",
+        "wrap": "square",
+        "autoFit": "shrinkText",
+        "autoFitScale": 1,
+        "insets": {
+          "top": 0,
+          "right": 0,
+          "bottom": 0,
+          "left": 0
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "A practical guide to reviewing accounts and recording changes"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "A practical guide to reviewing accounts and recording changes",
+          "resolvedTextStyle": {
+            "fontSize": 18,
+            "typeface": "Arial",
+            "color": "#9DB5C7",
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "A practical guide to reviewing accounts and recording changes",
+              "fontSize": 18,
+              "typeface": "Arial",
+              "color": "#9DB5C7",
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    }
+  ],
+  "composeRuns": []
+}

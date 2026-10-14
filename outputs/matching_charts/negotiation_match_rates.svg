@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="620" viewBox="0 0 1000 620">
+<rect width="100%" height="100%" rx="22" fill="#F8FAFC"/>
+<text x="110" y="58" font-family="Segoe UI,Arial,sans-serif" font-size="35" font-weight="700" fill="#0F172A">Negotiation matching accuracy</text>
+<text x="110" y="94" font-family="Segoe UI,Arial,sans-serif" font-size="17" fill="#64748B">7,086 records in the source file</text>
+<line x1="110" y1="508.0" x2="940" y2="508.0" stroke="#CBD5E1" stroke-width="1"/>
+<text x="92" y="514.0" text-anchor="end" font-family="Segoe UI,Arial,sans-serif" font-size="15" fill="#64748B">0%</text>
+<line x1="110" y1="436.0" x2="940" y2="436.0" stroke="#CBD5E1" stroke-width="1"/>
+<text x="92" y="442.0" text-anchor="end" font-family="Segoe UI,Arial,sans-serif" font-size="15" fill="#64748B">20%</text>
+<line x1="110" y1="364.0" x2="940" y2="364.0" stroke="#CBD5E1" stroke-width="1"/>
+<text x="92" y="370.0" text-anchor="end" font-family="Segoe UI,Arial,sans-serif" font-size="15" fill="#64748B">40%</text>
+<line x1="110" y1="292.0" x2="940" y2="292.0" stroke="#CBD5E1" stroke-width="1"/>
+<text x="92" y="298.0" text-anchor="end" font-family="Segoe UI,Arial,sans-serif" font-size="15" fill="#64748B">60%</text>
+<line x1="110" y1="220.0" x2="940" y2="220.0" stroke="#CBD5E1" stroke-width="1"/>
+<text x="92" y="226.0" text-anchor="end" font-family="Segoe UI,Arial,sans-serif" font-size="15" fill="#64748B">80%</text>
+<line x1="110" y1="148.0" x2="940" y2="148.0" stroke="#CBD5E1" stroke-width="1"/>
+<text x="92" y="154.0" text-anchor="end" font-family="Segoe UI,Arial,sans-serif" font-size="15" fill="#64748B">100%</text>
+<rect x="232.4" y="212.4" width="220" height="295.6" rx="12" fill="#0F766E"/>
+<text x="342.4" y="195.4" text-anchor="middle" font-family="Segoe UI,Arial,sans-serif" font-size="24" font-weight="700" fill="#0F172A">82.1%</text>
+<text x="342.4" y="242.4" text-anchor="middle" font-family="Segoe UI,Arial,sans-serif" font-size="16" font-weight="600" fill="#0F172A">5,818 / 7,086 MATCH</text>
+<text x="342.4" y="546" text-anchor="middle" font-family="Segoe UI,Arial,sans-serif" font-size="21" font-weight="600" fill="#0F172A">Group</text>
+<rect x="597.6" y="238.1" width="220" height="269.9" rx="12" fill="#5EEAD4"/>
+<text x="707.6" y="221.1" text-anchor="middle" font-family="Segoe UI,Arial,sans-serif" font-size="24" font-weight="700" fill="#0F172A">75.0%</text>
+<text x="707.6" y="268.1" text-anchor="middle" font-family="Segoe UI,Arial,sans-serif" font-size="16" font-weight="600" fill="#0F172A">5,313 / 7,086 MATCH</text>
+<text x="707.6" y="546" text-anchor="middle" font-family="Segoe UI,Arial,sans-serif" font-size="21" font-weight="600" fill="#0F172A">Team</text>
+<text x="110" y="592" font-family="Segoe UI,Arial,sans-serif" font-size="14" fill="#64748B">Match rate = MATCH ÷ (MATCH + NO MATCH)</text>
+</svg>

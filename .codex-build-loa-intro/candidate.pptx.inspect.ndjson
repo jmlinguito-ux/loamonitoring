@@ -1,0 +1,158 @@
+{"kind":"deck","id":"pr/lwehmh","name":"Deck"}
+{"kind":"layout","layoutId":"bb477aa7-7376-4215-bf6e-1b9e542d918e","name":"Master","type":"master"}
+{"kind":"layout","layoutId":"5507abf9-f8e4-48ba-b2d8-80bd48acf35b","name":"Title Slide","type":"title"}
+{"kind":"slide","id":"sl/cogr6e","slide":1,"title":"LOA Monitoring Tool","textShapes":5}
+{"kind":"shape","id":"sh/cr6pg7y1","slide":1,"bbox":[82,100,8,500]}
+{"kind":"textbox","id":"sh/rqd8n2xg","slide":1,"text":"LOA Monitoring Tool","textPreview":"LOA Monitoring Tool","textChars":19,"textLines":1,"bbox":[124,170,1010,100]}
+{"kind":"textbox","id":"sh/qp47exgv","slide":1,"text":"Introduction, core functions, and process flow","textPreview":"Introduction, core functions, and process flow","textChars":46,"textLines":1,"bbox":[128,286,950,58]}
+{"kind":"shape","id":"sh/povqlsfa","slide":1,"bbox":[128,386,730,0]}
+{"kind":"textbox","id":"sh/43mpcnyp","slide":1,"text":"Land operations workspace","textPreview":"Land operations workspace","textChars":25,"textLines":1,"bbox":[128,414,600,42]}
+{"kind":"textbox","id":"sh/32d8jix4","slide":1,"text":"Land Master  /  Reference data  /  Entry Logs","textPreview":"Land Master  /  Reference data  /  Entry Logs","textChars":45,"textLines":1,"bbox":[128,464,760,38]}
+{"kind":"textbox","id":"sh/2147adgj","slide":1,"text":"A practical guide to reviewing accounts and recording changes","textPreview":"A practical guide to reviewing accounts and recording changes","textChars":61,"textLines":1,"bbox":[128,606,900,30]}
+{"kind":"notes","id":"nt/cogr6e","slide":1,"text":"Introduce the app as a desktop workspace for managing LOA land records, applying reference information, and reviewing auditable changes."}
+{"kind":"slide","id":"sl/uiyicu","slide":2,"title":"What the tool supports","textShapes":17}
+{"kind":"textbox","id":"sh/ul07apkr","slide":2,"text":"What the tool supports","textPreview":"What the tool supports","textChars":22,"textLines":1,"bbox":[72,44,1120,66]}
+{"kind":"shape","id":"sh/hobqlk3i","slide":2,"bbox":[72,122,56,5]}
+{"kind":"textbox","id":"sh/gni9cf2x","slide":2,"text":"LOA MONITORING TOOL","textPreview":"LOA MONITORING TOOL","textChars":19,"textLines":1,"bbox":[72,675,400,20]}
+{"kind":"textbox","id":"sh/7i98falg","slide":2,"text":"02","textPreview":"02","textChars":2,"textLines":1,"bbox":[1172,675,36,20]}
+{"kind":"textbox","id":"sh/6h0765kv","slide":2,"text":"One account workspace from current record to change history","textPreview":"One account workspace from current record to change history","textChars":59,"textLines":1,"bbox":[72,160,1080,66]}
+{"kind":"textbox","id":"sh/tkrqhk3m","slide":2,"text":"LOA Monitoring brings land-account records together with finance and conversion references, then keeps a traceable record of saved changes.","textPreview":"LOA Monitoring brings land-account records together with finance and conversion references, then keeps a traceable record of saved changes.","textChars":139,"textLines":1,"bbox":[72,235,1050,78]}
+{"kind":"textbox","id":"sh/8jip8f21","slide":2,"text":"01","textPreview":"01","textChars":2,"textLines":1,"bbox":[72,385,54,42]}
+{"kind":"shape","id":"sh/jep8bql4","slide":2,"bbox":[72,438,230,0]}
+{"kind":"textbox","id":"sh/ytg725kj","slide":2,"text":"Review accounts","textPreview":"Review accounts","textChars":15,"textLines":1,"bbox":[72,455,245,44]}
+{"kind":"textbox","id":"sh/wjmh0rah","slide":2,"text":"Search and filter Land Master records.","textPreview":"Search and filter Land Master records.","textChars":38,"textLines":1,"bbox":[72,505,238,92]}
+{"kind":"textbox","id":"sh/hkvytwb2","slide":2,"text":"02","textPreview":"02","textChars":2,"textLines":1,"bbox":[360,385,54,42]}
+{"kind":"shape","id":"sh/uh4zyhsb","slide":2,"bbox":[360,438,230,0]}
+{"kind":"textbox","id":"sh/vidgrmtw","slide":2,"text":"Apply references","textPreview":"Apply references","textChars":16,"textLines":1,"bbox":[360,455,245,44]}
+{"kind":"textbox","id":"sh/8fmhw7a5","slide":2,"text":"Compare price, deductible, and conversion status.","textPreview":"Compare price, deductible, and conversion status.","textChars":49,"textLines":1,"bbox":[360,505,238,92]}
+{"kind":"textbox","id":"sh/9gvypcbq","slide":2,"text":"03","textPreview":"03","textChars":2,"textLines":1,"bbox":[648,385,54,42]}
+{"kind":"shape","id":"sh/mdkzuhsf","slide":2,"bbox":[648,438,230,0]}
+{"kind":"textbox","id":"sh/7etgn2t0","slide":2,"text":"Track progress","textPreview":"Track progress","textChars":14,"textLines":1,"bbox":[648,455,245,44]}
+{"kind":"textbox","id":"sh/sb6h8bap","slide":2,"text":"Monitor payment, mode, and conversion summaries.","textPreview":"Monitor payment, mode, and conversion summaries.","textChars":48,"textLines":1,"bbox":[648,505,238,92]}
+{"kind":"textbox","id":"sh/tcfi1gba","slide":2,"text":"04","textPreview":"04","textChars":2,"textLines":1,"bbox":[936,385,54,42]}
+{"kind":"shape","id":"sh/1sbylgje","slide":2,"bbox":[936,438,230,0]}
+{"kind":"textbox","id":"sh/0r2hcb2t","slide":2,"text":"Keep an audit trail","textPreview":"Keep an audit trail","textChars":19,"textLines":1,"bbox":[936,455,245,44]}
+{"kind":"textbox","id":"sh/f6tgj6l8","slide":2,"text":"See which field changed, when, and from what value.","textPreview":"See which field changed, when, and from what value.","textChars":51,"textLines":1,"bbox":[936,505,238,92]}
+{"kind":"notes","id":"nt/uiyicu","slide":2,"text":"The four functions describe the day-to-day value of the application without implying that all information is automatically synchronized. Users review and explicitly save staged changes."}
+{"kind":"slide","id":"sl/i2ntde","slide":3,"title":"Workspace map","textShapes":12}
+{"kind":"textbox","id":"sh/wnax4fmt","slide":3,"text":"Workspace map","textPreview":"Workspace map","textChars":13,"textLines":1,"bbox":[72,44,1120,66]}
+{"kind":"shape","id":"sh/vm1wvu58","slide":3,"bbox":[72,122,56,5]}
+{"kind":"textbox","id":"sh/ulsf2p43","slide":3,"text":"LOA MONITORING TOOL","textPreview":"LOA MONITORING TOOL","textChars":19,"textLines":1,"bbox":[72,675,400,20]}
+{"kind":"textbox","id":"sh/5c3e143q","slide":3,"text":"03","textPreview":"03","textChars":2,"textLines":1,"bbox":[1172,675,36,20]}
+{"kind":"textbox","id":"sh/4bux8zm5","slide":3,"text":"Daily work","textPreview":"Daily work","textChars":10,"textLines":1,"bbox":[72,170,240,42]}
+{"kind":"textbox","id":"sh/jq1wzulk","slide":3,"text":"Overview","textPreview":"Overview","textChars":8,"textLines":1,"bbox":[72,228,300,36]}
+{"kind":"textbox","id":"sh/ipsf6p4z","slide":3,"text":"Account mix, payment progress, conversion progress, and recent changes.","textPreview":"Account mix, payment progress, conversion progress, and recent changes.","textChars":71,"textLines":1,"bbox":[380,228,790,56]}
+{"kind":"shape","id":"sh/tg3y543m","slide":3,"bbox":[72,304,1096,0]}
+{"kind":"textbox","id":"sh/sfuxczm1","slide":3,"text":"Land Master","textPreview":"Land Master","textChars":11,"textLines":1,"bbox":[72,346,300,36]}
+{"kind":"textbox","id":"sh/ilgvm907","slide":3,"text":"Main account table for search, review, entry, and updates.","textPreview":"Main account table for search, review, entry, and updates.","textChars":58,"textLines":1,"bbox":[380,346,790,56]}
+{"kind":"shape","id":"sh/jmpwfehs","slide":3,"bbox":[72,422,1096,0]}
+{"kind":"textbox","id":"sh/4nydojix","slide":3,"text":"Entry Logs","textPreview":"Entry Logs","textChars":10,"textLines":1,"bbox":[72,464,300,36]}
+{"kind":"textbox","id":"sh/5o7ehozi","slide":3,"text":"Field-level history read from the Dataverse logs table.","textPreview":"Field-level history read from the Dataverse logs table.","textChars":55,"textLines":1,"bbox":[380,464,790,56]}
+{"kind":"shape","id":"sh/6pgvqt03","slide":3,"bbox":[72,590,1096,0]}
+{"kind":"textbox","id":"sh/rqpwjyho","slide":3,"text":"Reference & setup","textPreview":"Reference & setup","textChars":17,"textLines":1,"bbox":[72,605,220,34]}
+{"kind":"textbox","id":"sh/sryds3y9","slide":3,"text":"Finance  ·  Conversion  ·  Settings","textPreview":"Finance  ·  Conversion  ·  Settings","textChars":35,"textLines":1,"bbox":[320,601,840,40]}
+{"kind":"notes","id":"nt/i2ntde","slide":3,"text":"Finance and Conversion maintain reference data used in account work. Settings holds Dataverse connection and table configuration."}
+{"kind":"slide","id":"sl/0mqh47","slide":4,"title":"Overview dashboard","textShapes":12}
+{"kind":"textbox","id":"sh/3ed8va94","slide":4,"text":"Overview dashboard","textPreview":"Overview dashboard","textChars":18,"textLines":1,"bbox":[72,44,1120,66]}
+{"kind":"shape","id":"sh/4fm9ofqp","slide":4,"bbox":[72,122,56,5]}
+{"kind":"textbox","id":"sh/5gfqxkru","slide":4,"text":"LOA MONITORING TOOL","textPreview":"LOA MONITORING TOOL","textChars":19,"textLines":1,"bbox":[72,675,400,20]}
+{"kind":"textbox","id":"sh/u94ril87","slide":4,"text":"04","textPreview":"04","textChars":2,"textLines":1,"bbox":[1172,675,36,20]}
+{"kind":"textbox","id":"sh/vad8rq9s","slide":4,"text":"A quick read on account mix, payment, and conversion","textPreview":"A quick read on account mix, payment, and conversion","textChars":52,"textLines":1,"bbox":[72,160,1090,50]}
+{"kind":"textbox","id":"sh/gbm9kvqd","slide":4,"text":"ACCOUNTS BY MODE","textPreview":"ACCOUNTS BY MODE","textChars":16,"textLines":1,"bbox":[72,252,265,35]}
+{"kind":"textbox","id":"sh/hcvqt0ry","slide":4,"text":"See how the account portfolio is distributed across modes. Select a mode to focus the account list.","textPreview":"See how the account portfolio is distributed across modes. Select a mode to focus the account list.","textChars":99,"textLines":1,"bbox":[360,251,820,54]}
+{"kind":"shape","id":"sh/6lkrel8b","slide":4,"bbox":[72,317,1096,0]}
+{"kind":"textbox","id":"sh/7mt8nq9w","slide":4,"text":"PAYMENT PROGRESS","textPreview":"PAYMENT PROGRESS","textChars":16,"textLines":1,"bbox":[72,350,265,35]}
+{"kind":"textbox","id":"sh/f2xwz6dc","slide":4,"text":"Review contract value, payments deducted, outstanding balance, and settlement distribution.","textPreview":"Review contract value, payments deducted, outstanding balance, and settlement distribution.","textChars":91,"textLines":1,"bbox":[360,349,820,54]}
+{"kind":"shape","id":"sh/e1ov61cr","slide":4,"bbox":[72,415,1096,0]}
+{"kind":"textbox","id":"sh/14ze1wvi","slide":4,"text":"CONVERSION PROGRESS","textPreview":"CONVERSION PROGRESS","textChars":19,"textLines":1,"bbox":[72,448,265,35]}
+{"kind":"textbox","id":"sh/g3qd8bux","slide":4,"text":"Track DAR status counts, secured progress, and applied area.","textPreview":"Track DAR status counts, secured progress, and applied area.","textChars":60,"textLines":1,"bbox":[360,447,820,54]}
+{"kind":"shape","id":"sh/3qhw36d8","slide":4,"bbox":[72,513,1096,0]}
+{"kind":"textbox","id":"sh/258va1c3","slide":4,"text":"WEEKLY CHANGES","textPreview":"WEEKLY CHANGES","textChars":14,"textLines":1,"bbox":[72,546,265,35]}
+{"kind":"textbox","id":"sh/psze5gve","slide":4,"text":"Search recent audit activity by account or changed field.","textPreview":"Search recent audit activity by account or changed field.","textChars":57,"textLines":1,"bbox":[360,545,820,54]}
+{"kind":"notes","id":"nt/0mqh47","slide":4,"text":"The dashboard is intended for scanning operational status. Filters can focus the related account view, and the weekly changes area provides a direct search over recent activity."}
+{"kind":"slide","id":"sl/rhf2lj","slide":5,"title":"Land Master account work","textShapes":10}
+{"kind":"textbox","id":"sh/e5snqlsr","slide":5,"text":"Land Master account work","textPreview":"Land Master account work","textChars":24,"textLines":1,"bbox":[72,44,1120,66]}
+{"kind":"shape","id":"sh/1s36lgri","slide":5,"bbox":[72,122,56,5]}
+{"kind":"textbox","id":"sh/gru5svax","slide":5,"text":"LOA MONITORING TOOL","textPreview":"LOA MONITORING TOOL","textChars":19,"textLines":1,"bbox":[72,675,400,20]}
+{"kind":"textbox","id":"sh/3ulonq98","slide":5,"text":"05","textPreview":"05","textChars":2,"textLines":1,"bbox":[1172,675,36,20]}
+{"kind":"textbox","id":"sh/2tcnul83","slide":5,"text":"The account table is the working surface","textPreview":"The account table is the working surface","textChars":40,"textLines":1,"bbox":[72,160,1030,50]}
+{"kind":"textbox","id":"sh/pw36p0re","slide":5,"text":"Filter the list, inspect a record, then make a focused change or stage a reference update.","textPreview":"Filter the list, inspect a record, then make a focused change or stage a reference update.","textChars":90,"textLines":1,"bbox":[72,220,1020,45]}
+{"kind":"textbox","id":"sh/ovu5wvqt","slide":5,"text":"Reference update scope","textPreview":"Reference update scope","textChars":22,"textLines":1,"bbox":[72,315,360,42]}
+{"kind":"textbox","id":"sh/jyh4b694","slide":5,"text":"Total Contract Price\nPayment Deductible\nConversion Status","textPreview":"Total Contract Price | Payment Deductible | Conversion Status","textChars":57,"textLines":3,"bbox":[72,372,420,152]}
+{"kind":"shape","id":"sh/ix8ni1sj","slide":5,"bbox":[548,306,0,252]}
+{"kind":"textbox","id":"sh/4b6tgv2h","slide":5,"text":"Calculated financial fields","textPreview":"Calculated financial fields","textChars":27,"textLines":1,"bbox":[600,315,520,42]}
+{"kind":"textbox","id":"sh/pcfa9032","slide":5,"text":"Balance and % Paid recalculate from price and deductible. They are saved with the account update, but excluded as separate fields in the audit trail.","textPreview":"Balance and % Paid recalculate from price and deductible. They are saved with the account update, but excluded as separate fields in the ...","textChars":149,"textLines":1,"bbox":[600,372,555,132]}
+{"kind":"shape","id":"sh/29obe5kr","slide":5,"bbox":[72,577,1096,2]}
+{"kind":"textbox","id":"sh/3axs7alc","slide":5,"text":"Changes remain staged until the user selects “Save to Dataverse”.","textPreview":"Changes remain staged until the user selects “Save to Dataverse”.","textChars":65,"textLines":1,"bbox":[72,599,1090,36]}
+{"kind":"notes","id":"nt/rhf2lj","slide":5,"text":"Update from References uses the approved comparison scope: Total Contract Price, Payment Deductible, and Conversion Status. Balance and % Paid are calculated from the financial values and saved, but not listed as independent changed fields."}
+{"kind":"slide","id":"sl/zqlp7j","slide":6,"title":"Reference data and new entries","textShapes":14}
+{"kind":"textbox","id":"sh/61ore5sf","slide":6,"text":"Reference data and new entries","textPreview":"Reference data and new entries","textChars":30,"textLines":1,"bbox":[72,44,1120,66]}
+{"kind":"shape","id":"sh/t4zapkr6","slide":6,"bbox":[72,122,56,5]}
+{"kind":"textbox","id":"sh/836tgfal","slide":6,"text":"LOA MONITORING TOOL","textPreview":"LOA MONITORING TOOL","textChars":19,"textLines":1,"bbox":[72,675,400,20]}
+{"kind":"textbox","id":"sh/v6hsra9w","slide":6,"text":"06","textPreview":"06","textChars":2,"textLines":1,"bbox":[1172,675,36,20]}
+{"kind":"textbox","id":"sh/u58bipsr","slide":6,"text":"Reference data","textPreview":"Reference data","textChars":14,"textLines":1,"bbox":[72,165,470,48]}
+{"kind":"textbox","id":"sh/h8zatkr2","slide":6,"text":"Finance","textPreview":"Finance","textChars":7,"textLines":1,"bbox":[72,238,190,34]}
+{"kind":"textbox","id":"sh/g7qtkfah","slide":6,"text":"Holds financial reference values used during account lookup and reference updates.","textPreview":"Holds financial reference values used during account lookup and reference updates.","textChars":82,"textLines":1,"bbox":[260,236,370,74]}
+{"kind":"textbox","id":"sh/badsfqts","slide":6,"text":"Conversion","textPreview":"Conversion","textChars":10,"textLines":1,"bbox":[72,336,190,34]}
+{"kind":"textbox","id":"sh/a94r6ls7","slide":6,"text":"Holds DAR status values used to update and monitor conversion progress.","textPreview":"Holds DAR status values used to update and monitor conversion progress.","textChars":71,"textLines":1,"bbox":[260,334,370,74]}
+{"kind":"textbox","id":"sh/onq58zat","slide":6,"text":"Load or upload reference data, review it, then sync it to Dataverse when appropriate.","textPreview":"Load or upload reference data, review it, then sync it to Dataverse when appropriate.","textChars":85,"textLines":1,"bbox":[72,445,550,72]}
+{"kind":"shape","id":"sh/p8z6h4re","slide":6,"bbox":[660,166,0,452]}
+{"kind":"textbox","id":"sh/2l8n6psn","slide":6,"text":"New account entry","textPreview":"New account entry","textChars":17,"textLines":1,"bbox":[710,165,470,48]}
+{"kind":"textbox","id":"sh/nmhofu98","slide":6,"text":"Enter account identifiers and details. Finance lookup can fill matching financial values.","textPreview":"Enter account identifiers and details. Finance lookup can fill matching financial values.","textChars":89,"textLines":1,"bbox":[710,236,470,82]}
+{"kind":"textbox","id":"sh/cbq5czap","slide":6,"text":"Acquisition Sub-Level","textPreview":"Acquisition Sub-Level","textChars":21,"textLines":1,"bbox":[710,342,440,36]}
+{"kind":"textbox","id":"sh/xcj6l4ra","slide":6,"text":"Required for new records. Account Status is derived from the selected code and shown in Land Master and the entry form.","textPreview":"Required for new records. Account Status is derived from the selected code and shown in Land Master and the entry form.","textChars":119,"textLines":1,"bbox":[710,384,470,84]}
+{"kind":"textbox","id":"sh/a98na9sz","slide":6,"text":"Saving creates the Land Master record and an Initial Entry audit log.","textPreview":"Saving creates the Land Master record and an Initial Entry audit log.","textChars":69,"textLines":1,"bbox":[710,515,470,64]}
+{"kind":"notes","id":"nt/zqlp7j","slide":6,"text":"The Acquisition Sub-Level database field is optional at Dataverse schema level so existing records may remain blank. The app requires it only when creating a new entry. Account Status is a derived display value, not a separate stored or logged field."}
+{"kind":"slide","id":"sl/5fb6cy","slide":7,"title":"End-to-end update process","textShapes":23}
+{"kind":"textbox","id":"sh/n6143i1o","slide":7,"text":"End-to-end update process","textPreview":"End-to-end update process","textChars":25,"textLines":1,"bbox":[72,44,1120,66]}
+{"kind":"shape","id":"sh/o7a5cni9","slide":7,"bbox":[72,122,56,5]}
+{"kind":"textbox","id":"sh/9sjm5sju","slide":7,"text":"LOA MONITORING TOOL","textPreview":"LOA MONITORING TOOL","textChars":19,"textLines":1,"bbox":[72,675,400,20]}
+{"kind":"textbox","id":"sh/atsnex0f","slide":7,"text":"07","textPreview":"07","textChars":2,"textLines":1,"bbox":[1172,675,36,20]}
+{"kind":"textbox","id":"sh/bu147210","slide":7,"text":"From reference comparison to visible audit history","textPreview":"From reference comparison to visible audit history","textChars":50,"textLines":1,"bbox":[72,158,1100,46]}
+{"kind":"shape","id":"sh/wvu5g7il","slide":7,"bbox":[72,300,174,218]}
+{"kind":"textbox","id":"sh/xw3m9sj6","slide":7,"text":"1","textPreview":"1","textChars":1,"textLines":1,"bbox":[92,320,42,42]}
+{"kind":"textbox","id":"sh/qx832t0b","slide":7,"text":"Load account data","textPreview":"Load account data","textChars":17,"textLines":1,"bbox":[92,378,134,60]}
+{"kind":"textbox","id":"sh/ryh4vy1g","slide":7,"text":"Land Master from Dataverse","textPreview":"Land Master from Dataverse","textChars":26,"textLines":1,"bbox":[92,448,134,60]}
+{"kind":"shape","id":"sh/rqx8729g","slide":7,"bbox":[265,300,174,218]}
+{"kind":"textbox","id":"sh/qpo7yx8v","slide":7,"text":"2","textPreview":"2","textChars":1,"textLines":1,"bbox":[285,320,42,42]}
+{"kind":"textbox","id":"sh/dszq9crm","slide":7,"text":"Load references","textPreview":"Load references","textChars":15,"textLines":1,"bbox":[285,378,134,60]}
+{"kind":"textbox","id":"sh/cr6p07q1","slide":7,"text":"Finance and Conversion","textPreview":"Finance and Conversion","textChars":22,"textLines":1,"bbox":[285,448,134,60]}
+{"kind":"shape","id":"sh/3mx8329k","slide":7,"bbox":[458,300,174,218]}
+{"kind":"textbox","id":"sh/ilo7ux8z","slide":7,"text":"3","textPreview":"3","textChars":1,"textLines":1,"bbox":[478,320,42,42]}
+{"kind":"textbox","id":"sh/pofq5cra","slide":7,"text":"Compare values","textPreview":"Compare values","textChars":14,"textLines":1,"bbox":[478,378,134,60]}
+{"kind":"textbox","id":"sh/4n6pw7q5","slide":7,"text":"Price, deductible, DAR status","textPreview":"Price, deductible, DAR status","textChars":29,"textLines":1,"bbox":[478,448,134,60]}
+{"kind":"shape","id":"sh/vyd8zi98","slide":7,"bbox":[651,300,174,218]}
+{"kind":"textbox","id":"sh/ux47qd8n","slide":7,"text":"4","textPreview":"4","textChars":1,"textLines":1,"bbox":[671,320,42,42]}
+{"kind":"textbox","id":"sh/yt4r2dcv","slide":7,"text":"Review changes","textPreview":"Review changes","textChars":14,"textLines":1,"bbox":[671,378,134,60]}
+{"kind":"textbox","id":"sh/jud8bitg","slide":7,"text":"Changed rows are staged","textPreview":"Changed rows are staged","textChars":23,"textLines":1,"bbox":[671,448,134,60]}
+{"kind":"shape","id":"sh/kvm94nul","slide":7,"bbox":[844,300,174,218]}
+{"kind":"textbox","id":"sh/lwvqdsb6","slide":7,"text":"5","textPreview":"5","textChars":1,"textLines":1,"bbox":[864,320,42,42]}
+{"kind":"textbox","id":"sh/6x4r6xcr","slide":7,"text":"Save update","textPreview":"Save update","textChars":11,"textLines":1,"bbox":[864,378,134,60]}
+{"kind":"textbox","id":"sh/7yd8f2tc","slide":7,"text":"Master values are written","textPreview":"Master values are written","textChars":25,"textLines":1,"bbox":[864,448,134,60]}
+{"kind":"shape","id":"sh/8zm987ux","slide":7,"bbox":[1037,300,174,218]}
+{"kind":"textbox","id":"sh/tkvqhsbi","slide":7,"text":"6","textPreview":"6","textChars":1,"textLines":1,"bbox":[1057,320,42,42]}
+{"kind":"textbox","id":"sh/uloraxc3","slide":7,"text":"Check Entry Logs","textPreview":"Check Entry Logs","textChars":16,"textLines":1,"bbox":[1057,378,134,60]}
+{"kind":"textbox","id":"sh/vmxsj2t8","slide":7,"text":"Field changes are shown","textPreview":"Field changes are shown","textChars":23,"textLines":1,"bbox":[1057,448,134,60]}
+{"kind":"shape","id":"sh/pgzu9wvq","slide":7,"bbox":[246,409,19,0]}
+{"kind":"shape","id":"sh/4fqt0re5","slide":7,"bbox":[439,409,19,0]}
+{"kind":"shape","id":"sh/3ehc76dk","slide":7,"bbox":[632,409,19,0]}
+{"kind":"shape","id":"sh/2d8by1wz","slide":7,"bbox":[825,409,19,0]}
+{"kind":"shape","id":"sh/dkjudgvm","slide":7,"bbox":[1018,409,19,0]}
+{"kind":"textbox","id":"sh/cjqt4be1","slide":7,"text":"Manual edits follow the same review, save, and audit steps.","textPreview":"Manual edits follow the same review, save, and audit steps.","textChars":59,"textLines":1,"bbox":[72,572,1100,40]}
+{"kind":"notes","id":"nt/5fb6cy","slide":7,"text":"The process diagram is editable. If reviewing an update, compare the staged values before saving. Reference updates do not alter the Acquisition Sub-Level."}
+{"kind":"slide","id":"sl/4kei03","slide":8,"title":"Entry Logs and operating controls","textShapes":11}
+{"kind":"textbox","id":"sh/4vqxg3q1","slide":8,"text":"Entry Logs and operating controls","textPreview":"Entry Logs and operating controls","textChars":33,"textLines":1,"bbox":[72,44,1120,66]}
+{"kind":"shape","id":"sh/3ahg7y9g","slide":8,"bbox":[72,122,56,5]}
+{"kind":"textbox","id":"sh/298fet8b","slide":8,"text":"LOA MONITORING TOOL","textPreview":"LOA MONITORING TOOL","textChars":19,"textLines":1,"bbox":[72,675,400,20]}
+{"kind":"textbox","id":"sh/d0jyd8ry","slide":8,"text":"08","textPreview":"08","textChars":2,"textLines":1,"bbox":[1172,675,36,20]}
+{"kind":"textbox","id":"sh/czahk3qd","slide":8,"text":"A field-level record of saved account changes","textPreview":"A field-level record of saved account changes","textChars":45,"textLines":1,"bbox":[72,158,1080,52]}
+{"kind":"textbox","id":"sh/ryhgby9s","slide":8,"text":"Entry Logs reads the Dataverse log source and presents comparisons for each changed field.","textPreview":"Entry Logs reads the Dataverse log source and presents comparisons for each changed field.","textChars":90,"textLines":1,"bbox":[72,218,1060,42]}
+{"kind":"textbox","id":"sh/qx8fit87","slide":8,"text":"Each change shows","textPreview":"Each change shows","textChars":17,"textLines":1,"bbox":[72,304,290,36]}
+{"kind":"textbox","id":"sh/t4fy1ore","slide":8,"text":"Field name\nPrevious value\nNew value\nAction type and work week","textPreview":"Field name | Previous value | New value | Action type and work week","textChars":61,"textLines":4,"bbox":[72,354,430,180]}
+{"kind":"shape","id":"sh/s36x8jat","slide":8,"bbox":[574,296,0,260]}
+{"kind":"textbox","id":"sh/614zy5sb","slide":8,"text":"Use the table safely","textPreview":"Use the table safely","textChars":20,"textLines":1,"bbox":[626,304,480,36]}
+{"kind":"textbox","id":"sh/72xgra9w","slide":8,"text":"Select a cell and press Ctrl+C to copy its displayed value.\n\nRevert is available only for eligible field changes. Calculated Balance and % Paid are not independent revert targets.","textPreview":"Select a cell and press Ctrl+C to copy its displayed value. |  | Revert is available only for eligible field changes. Calculated Balance ...","textChars":179,"textLines":3,"bbox":[626,354,520,178]}
+{"kind":"shape","id":"sh/s36h0fah","slide":8,"bbox":[72,574,1096,2]}
+{"kind":"textbox","id":"sh/t4fytkr2","slide":8,"text":"Recommended rhythm","textPreview":"Recommended rhythm","textChars":18,"textLines":1,"bbox":[72,595,260,36]}
+{"kind":"textbox","id":"sh/u5oz2psn","slide":8,"text":"Check connection  /  review changes  /  save explicitly  /  verify the audit trail","textPreview":"Check connection  /  review changes  /  save explicitly  /  verify the audit trail","textChars":82,"textLines":1,"bbox":[350,594,820,38]}
+{"kind":"notes","id":"nt/4kei03","slide":8,"text":"Entry Logs are fetched from Dataverse and held in application memory for the open session. A refresh failure should preserve the displayed results and show a Could not refresh notice. Revert affects only eligible field changes; calculated Balance and % Paid are excluded."}

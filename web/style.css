@@ -4472,3 +4472,17 @@ body { font-variant-numeric: tabular-nums; font-size: 13.5px; }
 .ov-sub-hd b { font-size: 16px; font-weight: 600; color: var(--ink); }
 .ov-sub-hd span { font-size: 12px; color: var(--ink3); }
 .ov-stack-sm { height: 6px; }
+
+/* Changed accounts: one line per change, field | old → new (2026-10-14).
+   Replaces the 5-column grid that shifted every change after the first. */
+.ov-diff { display: flex; flex-direction: column; align-items: stretch; gap: 0; padding: 4px 0 0; font-size: 13px; grid-template-columns: none; max-width: 900px; }
+.ov-dline { display: grid; grid-template-columns: minmax(110px, 170px) minmax(0, 1fr); gap: 4px 16px; align-items: baseline; padding: 7px 0; border-top: 1px solid var(--line-soft); }
+.ov-dline:first-child { border-top: 0; }
+.ov-dvals { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; min-width: 0; }
+.ov-dvals .ov-do, .ov-dvals .ov-dn { overflow-wrap: anywhere; word-break: normal; }
+.ov-do.blank, .ov-dn.blank { font-style: italic; font-weight: 400; text-decoration: none; color: var(--ink3); }
+.ov-rowacts { margin-top: 8px; }
+/* Changed accounts: When + By merged into one "Updated" column (2026-10-14) */
+#dashAuditTable td.ov-when { display: table-cell; }
+#dashAuditTable td.ov-when > span { display: block; white-space: nowrap; }
+#dashAuditTable td.ov-when .ov-by { font-size: 12px; color: var(--ink3); white-space: normal; margin-top: 2px; }
