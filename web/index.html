@@ -44,13 +44,13 @@
         <button type="button" class="btn primary" id="btnOpenNewEntry">+ New entry</button>
         <button type="button" class="btn" id="btnTopSyncDv">Sync Land Master</button>
         <div class="data-status" role="group" aria-label="Data status">
-          <button type="button" class="pill-btn" id="btnTopConnPill" title="Dataverse connection — open Settings">
+          <button type="button" class="pill-btn" id="btnTopConnPill" title="Dataverse connection · open Settings">
             <span class="pill-dot" id="dotTopConn"></span><span class="pill-name">Dataverse</span><span class="pill-val" id="lblTopConn">Not connected</span>
           </button>
-          <button type="button" class="pill-btn" id="btnTopFinancePill" title="Finance reference data — open Finance">
+          <button type="button" class="pill-btn" id="btnTopFinancePill" title="Finance reference data · open Finance">
             <span class="pill-dot" id="dotFinanceRef"></span><span class="pill-name">Finance</span><span class="pill-val" id="lblTopFinance">None</span>
           </button>
-          <button type="button" class="pill-btn" id="btnTopConversionPill" title="Conversion reference data — open Conversion">
+          <button type="button" class="pill-btn" id="btnTopConversionPill" title="Conversion reference data · open Conversion">
             <span class="pill-dot" id="dotConversionRef"></span><span class="pill-name">Conversion</span><span class="pill-val" id="lblTopConversion">None</span>
           </button>
         </div>
@@ -64,11 +64,16 @@
       <section class="view-panel" id="view-records">
         <div class="page-heading"><div><p class="page-kicker">Land records</p><h1>Land Master</h1><p>Review accounts, stage edits, and apply reference updates.</p></div></div>
         <!-- KPI Row -->
-        <div class="kpi-row">
+        <div class="kpi-row kpi-row-5">
           <div class="kpi-card">
             <span class="kpi-label">Total LOA Records</span>
             <span class="kpi-value" id="kpiRecordCount">0</span>
-            <span class="kpi-note" id="kpiExcludedNote" title="Records, contract price and payments count every account. Outstanding Balance counts only direct sale and secured lease. Hover a box for the breakdown by group.">Balance: direct sale and secured lease</span>
+            <span class="kpi-note" id="kpiExcludedNote" title="Outstanding Balance counts secured sale and secured lease only. Hover a card for its breakdown.">Balance: secured sale and secured lease</span>
+          </div>
+          <div class="kpi-card">
+            <span class="kpi-label">Total Lot Area (Ha)</span>
+            <span class="kpi-value" id="kpiTotalHectares">0 ha</span>
+            <span class="kpi-note" id="kpiHectaresNote">Every account shown</span>
           </div>
           <div class="kpi-card">
             <span class="kpi-label">Total Contract Price (TCP)</span>
@@ -88,14 +93,10 @@
         <div class="panel">
           <div class="panel-head data-toolbar ledger-toolbar">
             <div class="toolbar-filters" role="search" aria-label="Filter Land Master records">
-              <input type="search" id="searchInput" name="land-master-search" autocomplete="off" aria-label="Search Land Master records" class="input toolbar-search" placeholder="Search records…" />
-              <select id="typeFilter" class="select toolbar-select-sm toolbar-filter-first" aria-label="Filter Land Master by type">
-                <option value="ALL">All Types</option>
-              </select>
-              <select id="modeFilterPanel" class="select toolbar-select-md toolbar-filter-second" aria-label="Filter Land Master by mode" title="Filter records by Mode">
-                <option value="ALL">All Modes</option>
-              </select>
-              <button class="btn xs ghost toolbar-clear" id="btnClearFilters" title="Clear all filters & search">Clear Filters</button>
+              <input type="search" id="searchInput" name="land-master-search" autocomplete="off" aria-label="Search Land Master records" class="input toolbar-search" placeholder="Search records… (use commas for several)" title="Search several values at once by separating them with commas, e.g. BAT-NAS-004411, TAN-248." />
+              <div id="typeFilter" class="multi-filter toolbar-select-sm toolbar-filter-first"></div>
+              <div id="modeFilterPanel" class="multi-filter toolbar-select-md toolbar-filter-second" title="Filter by Mode"></div>
+              <button class="btn xs ghost toolbar-clear" id="btnClearFilters" title="Clear filters and search">Clear Filters</button>
             </div>
 
             <div class="toolbar-meta">
@@ -111,13 +112,13 @@
 
             <div class="toolbar-actions">
               <button class="btn" id="btnExportExcel">Export Excel</button>
-              <button class="btn accent-btn" id="btnUpdateFromFinance" title="Look up & auto-populate latest financial figures and Conversion Status from active Reference Data">Update from References</button>
+              <button class="btn accent-btn" id="btnUpdateFromFinance" title="Fill in the latest contract price, payments and Conversion Status from the reference data.">Update from References</button>
             </div>
 
             <!-- Staged changes retain a dedicated row when edits are pending. -->
             <div id="stagedEditsWrap" class="staged-edits-bar hidden">
               <span id="unsavedEditsChip" class="dirty-chip">0 unsaved edits</span>
-              <button class="btn xs ghost" id="btnToggleShowOnlyChanged" title="Toggle between viewing only changed rows vs all rows">Show Changed Only</button>
+              <button class="btn xs ghost" id="btnToggleShowOnlyChanged" title="Show only changed rows, or all rows">Show Changed Only</button>
               <button class="btn xs primary" id="btnSaveStagedEdits">Save to Dataverse</button>
               <button class="btn xs ghost" id="btnDiscardStagedEdits">Discard</button>
             </div>
@@ -170,7 +171,7 @@
               <select id="wwFilterLogs" class="select toolbar-select-md toolbar-filter-second" aria-label="Filter logs by work week" title="Filter by Work Week">
                 <option value="ALL">All Work Weeks</option>
               </select>
-              <button class="btn xs ghost toolbar-clear" id="btnClearFiltersLogs" title="Clear all filters & search">Clear Filters</button>
+              <button class="btn xs ghost toolbar-clear" id="btnClearFiltersLogs" title="Clear filters and search">Clear Filters</button>
             </div>
 
             <div class="toolbar-meta">
@@ -186,7 +187,7 @@
 
             <div class="toolbar-actions">
               <button class="btn" id="btnExportExcelLogs">Export Excel</button>
-              <button class="btn ghost" id="btnRefreshLogs" title="Refresh entry logs from Dataverse">Refresh Logs</button>
+              <button class="btn ghost" id="btnRefreshLogs" title="Reload Entry Logs from Dataverse">Refresh Logs</button>
             </div>
           </div>
 
@@ -217,7 +218,7 @@
               <button type="button" class="ov-week-step" id="btnDashNextWeek" aria-label="Next work week">&#8250;</button>
             </div>
             <span class="ov-synced" id="dashSyncedLabel"></span>
-            <button type="button" class="btn" id="btnRefreshDashboard" title="Reload Land Master, references and Entry Logs from Dataverse">
+            <button type="button" class="btn" id="btnRefreshDashboard" title="Reload Land Master, references and Entry Logs from Dataverse.">
               <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.5 15a9 9 0 1 1-2.1-9.4L23 10"></path></svg>
               <span>Sync</span>
             </button>
@@ -327,20 +328,20 @@
               <select id="typeFilterFinance" class="select toolbar-select-md" aria-label="Filter Finance by type">
                 <option value="ALL">All Types</option>
               </select>
-              <button class="btn xs ghost" id="btnClearFiltersFinance" title="Clear all filters & search">Clear Filters</button>
+              <button class="btn xs ghost" id="btnClearFiltersFinance" title="Clear filters and search">Clear Filters</button>
             </div>
 
             <!-- Staged Changes Toolbar for Finance Data -->
             <div id="stagedEditsWrapFinance" class="staged-edits-bar hidden">
               <span id="unsavedEditsChipFinance" class="dirty-chip">0 modified rows</span>
-              <button class="btn xs ghost" id="btnToggleShowOnlyChangedFinance" title="Toggle between viewing only changed rows vs all rows">Show Changed Only</button>
+              <button class="btn xs ghost" id="btnToggleShowOnlyChangedFinance" title="Show only changed rows, or all rows">Show Changed Only</button>
               <button class="btn xs primary" id="btnSaveStagedEditsFinance">Save to Dataverse</button>
               <button class="btn xs ghost" id="btnDiscardStagedEditsFinance">Discard</button>
             </div>
 
             <div class="toolbar-actions">
               <button class="btn primary" id="btnUploadFinance">Upload Excel / CSV</button>
-              <button class="btn" id="btnSyncFinanceToDv" title="Upload & sync loaded finance rows directly to Dataverse table">Sync to Dataverse</button>
+              <button class="btn" id="btnSyncFinanceToDv" title="Upload the loaded finance rows to Dataverse">Sync to Dataverse</button>
               <!-- Columns visibility picker -->
               <div class="col-picker-container">
                 <button class="btn xs ghost" id="btnColumnsPickerFinance" title="Customize visible columns">Columns ▾</button>
@@ -350,7 +351,7 @@
               </div>
 
               <span class="mono-input" id="lblFinanceGridCount" style="color: var(--ink3); font-size: 12px;">0 rows</span>
-              <button class="btn ghost" id="btnDownloadFinanceTemplate" title="Download standard Excel template for Finance Reference">Download Template</button>
+              <button class="btn ghost" id="btnDownloadFinanceTemplate" title="Download the Finance Reference Excel template">Download Template</button>
               <button class="btn" id="btnExportExcelFinance">Export Excel</button>
               <button class="btn danger-ghost" id="btnClearFinanceData">Clear</button>
             </div>
@@ -376,7 +377,7 @@
               <select id="statusFilterConversion" class="select toolbar-select-md" aria-label="Filter Conversion by DAR Status" title="Filter by DAR Status">
                 <option value="ALL">All DAR Status</option>
               </select>
-              <button class="btn xs ghost" id="btnClearFiltersConversion" title="Clear all filters & search">Clear Filters</button>
+              <button class="btn xs ghost" id="btnClearFiltersConversion" title="Clear filters and search">Clear Filters</button>
               <div class="col-picker-container">
                 <button class="btn xs ghost" id="btnColumnsPickerConversion" title="Customize visible columns">Columns ▾</button>
                 <div class="col-picker-menu hidden" id="colPickerMenuConversion">
@@ -389,15 +390,15 @@
             <!-- Staged Changes Toolbar for Conversion Data -->
             <div id="stagedEditsWrapConversion" class="staged-edits-bar hidden">
               <span id="unsavedEditsChipConversion" class="dirty-chip">0 modified rows</span>
-              <button class="btn xs ghost" id="btnToggleShowOnlyChangedConversion" title="Toggle between viewing only changed rows vs all rows">Show Changed Only</button>
+              <button class="btn xs ghost" id="btnToggleShowOnlyChangedConversion" title="Show only changed rows, or all rows">Show Changed Only</button>
               <button class="btn xs primary" id="btnSaveStagedEditsConversion">Save to Dataverse</button>
               <button class="btn xs ghost" id="btnDiscardStagedEditsConversion">Discard</button>
             </div>
 
             <div class="toolbar-actions">
               <button class="btn primary" id="btnUploadConversion">Upload Excel / CSV</button>
-              <button class="btn" id="btnSyncConversionToDv" title="Upload & sync loaded conversion rows directly to Dataverse table">Sync to Dataverse</button>
-              <button class="btn ghost" id="btnDownloadConversionTemplate" title="Download standard Excel template for Conversion Reference">Download Template</button>
+              <button class="btn" id="btnSyncConversionToDv" title="Upload the loaded conversion rows to Dataverse">Sync to Dataverse</button>
+              <button class="btn ghost" id="btnDownloadConversionTemplate" title="Download the Conversion Reference Excel template">Download Template</button>
               <button class="btn" id="btnExportExcelConversion">Export Excel</button>
               <button class="btn danger-ghost" id="btnClearConversionData">Clear</button>
             </div>
@@ -801,24 +802,20 @@
             <label class="form-label">Mode</label>
             <select id="fMode" class="select">
               <option value="">-- Select Mode --</option>
-              <option value="FOR VERIFICATION">FOR VERIFICATION</option>
-              <option value="NOT AVAILABLE">NOT AVAILABLE</option>
-              <option value="OPEN TO LEASE">OPEN TO LEASE</option>
-              <option value="OPEN TO SALE">OPEN TO SALE</option>
-              <option value="SECURED SALE">SECURED SALE</option>
+              <option value="RESCINDED">RESCINDED</option>
               <option value="SECURED LEASE">SECURED LEASE</option>
-              <option value="SOLD TO PARTNER">SOLD TO PARTNER</option>
-              <option value="SS - STP">SS - STP</option>
-              <option value="SL - STP">SL - STP</option>
-              <option value="SS - FROM LAND STP">SS - FROM LAND STP</option>
+              <option value="SECURED LEASE NON SP">SECURED LEASE NON SP</option>
+              <option value="SECURED SALE">SECURED SALE</option>
+              <option value="SECURED SALE NON SP">SECURED SALE NON SP</option>
+              <option value="SL - FROM LAND">SL - FROM LAND</option>
               <option value="SL - FROM LAND STP">SL - FROM LAND STP</option>
+              <option value="SL - RESCINDED">SL - RESCINDED</option>
+              <option value="SL - STP">SL - STP</option>
+              <option value="SS - FROM LAND">SS - FROM LAND</option>
+              <option value="SS - FROM LAND STP">SS - FROM LAND STP</option>
               <option value="SS - FROM ROW">SS - FROM ROW</option>
               <option value="SS - RESCINDED">SS - RESCINDED</option>
-              <option value="TO BE IDENTIFIED">TO BE IDENTIFIED</option>
-              <option value="RESCINDED">RESCINDED</option>
-              <option value="NOT USABLE">NOT USABLE</option>
-              <option value="SECURED SALE - NON SP">SECURED SALE - NON SP</option>
-              <option value="SECURED LEASE - NON SP">SECURED LEASE - NON SP</option>
+              <option value="SS - STP">SS - STP</option>
             </select>
           </div>
         </div>

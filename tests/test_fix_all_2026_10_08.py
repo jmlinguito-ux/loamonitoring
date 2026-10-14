@@ -153,3 +153,107 @@ class TestFinanceLookupFixes(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class TestStagedTitleChangeIsLogged(unittest.TestCase):
+    """2026-10-14: a grid edit of Title No + Registered Owner logged only the owner,
+    because the snapshot was stamped with the row's old Title No."""
+
+    def test_title_and_owner_both_appear_in_entry_logs(self):
+        app = _api()
+        before = {'__id': 'rec-1', 'cr63f_control1': 'BAT-NAS-004411', 'cr63f_areaindex': 'NAS-272',
+                  'cr63f_indexno': 'I-1', 'cr63f_titleno': 'TCT-OLD', 'cr63f_registeredowner': 'JUAN'}
+        app.loa_records = [dict(before)]
+        baseline = {**before, 'cr63f_actiontype': 'BASELINE', 'cr63f_fieldchanged': 'Full Record',
+                    'cr63f_details': '[MASTER:rec-1] [SOURCE:BASELINE]', 'cr63f_loamonitoringid': 'rec-1',
+                    '__createdon_raw': '2026-10-14T08:05:00Z', '__id': 'base-1'}
+        with patch.object(app, '_write_baseline_if_missing', return_value=None):
+            res = app.save_staged_records([{'id': 'rec-1', 'action_type': 'MANUAL_EDIT', 'fields': {
+                'cr63f_titleno': 'TCT-T-52585', 'cr63f_registeredowner': 'DOMINGO MALABANAN ET AL'}}])
+        self.assertTrue(res['success'], res)
+        snapshot = app.dv_client.save_log_record.call_args[0][0]
+        self.assertEqual(snapshot['cr63f_titleno'], 'TCT-T-52585')
+        snapshot = {**snapshot, '__createdon_raw': '2026-10-14T08:06:00Z', '__id': 'snap-1'}
+        fields = {l['field_name'] for l in derive_field_diffs_from_snapshots([baseline, snapshot])}
+        self.assertIn('Title No', fields)
+        self.assertIn('Registered Owner', fields)
+
+
+class TestEveryFieldChangeIsLogged(unittest.TestCase):
+    """2026-10-14: every editable field, changed or cleared, from the grid or the
+    drawer, appears in Entry Logs. A cleared field used to read back the old value
+    from a display-name copy ('Registered Owner', 'Authorized Rep', 'Status' ...)."""
+
+    BEFORE = {
+        'cr63f_control1': 'C-1', 'cr63f_type': 'SALE', 'cr63f_indexno': 'I-1', 'cr63f_areaindex': 'AI-1',
+        'cr63f_titleno': 'T-1', 'cr63f_registeredowner': 'OWN', 'cr63f_authorizedrepresentative': 'REP',
+        'cr63f_entity': 'ENT', 'cr63f_province': 'PROV', 'cr63f_municipality': 'MUN',
+        'cr63f_dbadjustedbarangay': 'BRGY', 'cr63f_lotareaha': '1.5', 'new_contracttype': 'CT',
+        'new_mode': 'SECURED SALE', 'cr63f_conversionstatus': 'CS', 'cr63f_acquisitionsublevel': 'ASL',
+        'cr63f_rccprice': '100', 'cr63f_rccterms': 'TERMS', 'cr63f_endorseddate': '10/01/2026',
+        'cr63f_secureddate': '10/02/2026', 'cr63f_securedendorsedate': '10/03/2026',
+        'cr63f_totalcontractprice': '1000', 'cr63f_totalpaymentdeductibletotcp': '200',
+    }
+    NOT_CLEARABLE = {'cr63f_control1', 'cr63f_type', 'new_mode'}
+
+    def _record(self):
+        from app import LOG_COMPARE_SPECS
+        rec = {'__id': 'rec-1', '__etag': 'W/"1"', **self.BEFORE}
+        for _canon, keys, _type in LOG_COMPARE_SPECS:
+            if keys[0] in self.BEFORE:
+                for alias in keys[1:]:
+                    rec[alias] = self.BEFORE[keys[0]]
+        return rec
+
+    def _logged_fields(self, app, record):
+        baseline = {**record, 'cr63f_actiontype': 'BASELINE', 'cr63f_fieldchanged': 'Full Record',
+                    'cr63f_details': '[MASTER:rec-1] [SOURCE:BASELINE]', 'cr63f_loamonitoringid': 'rec-1',
+                    '__createdon_raw': '2026-10-14T08:05:00Z', '__id': 'base'}
+        snapshot = {**app.dv_client.save_log_record.call_args[0][0],
+                    '__createdon_raw': '2026-10-14T08:06:00Z', '__id': 'snap'}
+        return {l['field_name'] for l in derive_field_diffs_from_snapshots([baseline, snapshot])}
+
+    @staticmethod
+    def _new_value(value):
+        if '/' in value:
+            return '11/11/2026'
+        return str(float(value) + 1) if value[0].isdigit() else value + 'X'
+
+    def _cases(self):
+        from app import LOG_COMPARE_SPECS
+        for canon, keys, _type in LOG_COMPARE_SPECS:
+            key = keys[0]
+            if key not in self.BEFORE:
+                continue
+            yield canon, keys, self._new_value(self.BEFORE[key])
+            if key not in self.NOT_CLEARABLE:
+                yield canon, keys, ''
+
+    def test_grid_save_logs_every_field(self):
+        for canon, keys, value in self._cases():
+            with self.subTest(field=canon, value=value):
+                app = _api()
+                record = self._record()
+                app.loa_records = [dict(record)]
+                with patch.object(app, '_write_baseline_if_missing', return_value=None):
+                    res = app.save_staged_records([{'id': 'rec-1', 'action_type': 'MANUAL_EDIT',
+                                                    'fields': {keys[0]: value}}])
+                self.assertTrue(res['success'], res)
+                self.assertIn(canon, self._logged_fields(app, record))
+
+    def test_drawer_save_logs_every_field(self):
+        identity = ['cr63f_type', 'cr63f_indexno', 'cr63f_areaindex', 'cr63f_titleno', 'cr63f_control1']
+        for canon, keys, value in self._cases():
+            with self.subTest(field=canon, value=value):
+                app = _api()
+                app.dv_client.get_record.return_value = None
+                app.dv_client.save_loa_record.return_value = {'success': True, 'id': 'rec-1', 'etag': 'W/"2"'}
+                record = self._record()
+                app.loa_records = [dict(record)]
+                payload = {key: self.BEFORE[key] for key in identity}
+                payload[keys[0]] = value
+                payload[keys[1]] = value
+                with patch.object(app, '_write_baseline_if_missing', return_value=None):
+                    res = app.save_loa_record_entry(payload, 'rec-1')
+                self.assertTrue(res.get('success'), res.get('error'))
+                self.assertIn(canon, self._logged_fields(app, record))
