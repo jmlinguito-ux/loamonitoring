@@ -88,7 +88,7 @@
         <div class="panel">
           <div class="panel-head data-toolbar ledger-toolbar">
             <div class="toolbar-filters" role="search" aria-label="Filter Land Master records">
-              <input type="search" id="searchInput" name="land-master-search" autocomplete="off" aria-label="Search Land Master records" class="input toolbar-search" placeholder="Search records…" />
+              <input type="search" id="searchInput" name="land-master-search" autocomplete="off" aria-label="Search Land Master records" class="input toolbar-search" placeholder="Search records… (use commas for several)" title="Separate several values with commas, e.g. BAT-NAS-004411, TAN-248, to show every record that matches any of them." />
               <select id="typeFilter" class="select toolbar-select-sm toolbar-filter-first" aria-label="Filter Land Master by type">
                 <option value="ALL">All Types</option>
               </select>
@@ -812,13 +812,16 @@
               <option value="SL - STP">SL - STP</option>
               <option value="SS - FROM LAND STP">SS - FROM LAND STP</option>
               <option value="SL - FROM LAND STP">SL - FROM LAND STP</option>
+              <option value="SS - FROM LAND">SS - FROM LAND</option>
+              <option value="SL - FROM LAND">SL - FROM LAND</option>
               <option value="SS - FROM ROW">SS - FROM ROW</option>
               <option value="SS - RESCINDED">SS - RESCINDED</option>
+              <option value="SL - RESCINDED">SL - RESCINDED</option>
               <option value="TO BE IDENTIFIED">TO BE IDENTIFIED</option>
               <option value="RESCINDED">RESCINDED</option>
               <option value="NOT USABLE">NOT USABLE</option>
-              <option value="SECURED SALE - NON SP">SECURED SALE - NON SP</option>
-              <option value="SECURED LEASE - NON SP">SECURED LEASE - NON SP</option>
+              <option value="SECURED SALE NON SP">SECURED SALE NON SP</option>
+              <option value="SECURED LEASE NON SP">SECURED LEASE NON SP</option>
             </select>
           </div>
         </div>

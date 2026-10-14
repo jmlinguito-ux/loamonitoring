@@ -175,3 +175,34 @@ class TestDashboardAnalytics(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestPaymentGroups(unittest.TestCase):
+    """Mode groups for payment figures (decision 2026-10-14)."""
+
+    def test_modes_map_to_groups(self):
+        from app import _payment_group
+        expected = {
+            'SECURED SALE': 'DIRECT_SALE', 'SS - FROM LAND': 'DIRECT_SALE', 'SS - FROM ROW': 'DIRECT_SALE',
+            'SECURED LEASE': 'LEASE_DIRECT', 'SL - FROM LAND': 'LEASE_DIRECT',
+            'SS - STP': 'STP_SALE', 'SS - FROM LAND STP': 'STP_SALE',
+            'SL - STP': 'LEASE_STP', 'SL - FROM LAND STP': 'LEASE_STP',
+            'SECURED SALE NON SP': 'NON_SP', 'SECURED LEASE NON SP': 'NON_SP',
+            'RESCINDED': 'RESCINDED', 'SS - RESCINDED': 'RESCINDED', 'SL - RESCINDED': 'RESCINDED',
+        }
+        for mode, group in expected.items():
+            self.assertEqual(_payment_group(mode), group, mode)
+
+    def test_non_sp_kept_out_of_paid_status_and_balance(self):
+        with patch('dataverse.DataverseClient.try_silent_token', return_value=None):
+            app = Api()
+        app.loa_records = [
+            {'new_mode': 'SECURED SALE', 'cr63f_totalcontractprice': '100', 'cr63f_totalpaymentdeductibletotcp': '40'},
+            {'new_mode': 'SECURED SALE NON SP', 'cr63f_totalcontractprice': '100', 'cr63f_totalpaymentdeductibletotcp': '10'},
+            {'new_mode': 'SECURED LEASE NON SP', 'cr63f_totalcontractprice': '50', 'cr63f_totalpaymentdeductibletotcp': '0'},
+        ]
+        fb = app.get_dashboard_analytics()['financial_breakdown']
+        self.assertEqual(fb['direct_sale_count'], 1)
+        self.assertEqual(fb['non_sp_count'], 2)
+        self.assertEqual(fb['payments_made_total'], 50.0)   # every account's payments
+        self.assertEqual(fb['balance_to_pay'], 60.0)        # direct sale + secured lease only
