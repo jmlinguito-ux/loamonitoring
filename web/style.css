@@ -4434,3 +4434,18 @@ body { font-variant-numeric: tabular-nums; font-size: 13.5px; }
 .ov-li-muted .ov-nm small { margin-left: 6px; font-size: 11.5px; color: var(--ink3); opacity: .85; }
 .ov-c-hatch { background: repeating-linear-gradient(135deg, var(--none) 0 2px, transparent 2px 4px); border: 1px solid var(--none); }
 .ov-legend-sep-first { margin-top: 0; padding-top: 0; border-top: 0; }
+
+/* ---------- Overview: fit the window (2026-10-14) ---------- */
+/* KPI tiles grow with a wrapped subtitle instead of clipping it. */
+.ov-kpi { height: auto; min-height: 96px; }
+/* On wide windows the two card rows share the window height (3 : 2) instead of
+   fixed 420px / 280px heights; cards scroll inside. Minimum heights keep them
+   usable on short windows, where the page scrolls instead. */
+@media (min-width: 1181px) {
+  #view-dashboard > .ov-head, #view-dashboard > .ov-filter { flex: none; }
+  #view-dashboard > .ov-sect[aria-labelledby="ovThisWeek"] { flex: 3 1 0; min-height: 330px; }
+  #view-dashboard > .ov-sect[aria-labelledby="ovPortfolio"] { flex: 2 1 0; min-height: 200px; }
+  #view-dashboard > .ov-sect > .ov-secthd, #view-dashboard > .ov-sect > .ov-kpis { flex: none; }
+  .ov-two, .ov-port { flex: 1 1 0; min-height: 0; grid-template-rows: minmax(0, 1fr); align-items: stretch; }
+  .ov-two > .ov-card, .ov-port > .ov-card { height: auto; min-height: 0; }
+}
