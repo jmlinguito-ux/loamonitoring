@@ -26,10 +26,10 @@ class TestAuditReviewFixes(unittest.TestCase):
 
     def test_clean_title_mod_deterministic(self):
         """clean_title_mod should deterministically pick the main/longest numeric core."""
-        val1 = clean_title_mod('TCT-066-2019006115')
+        val1 = clean_title_mod('TCT-066-2000001234')
         val2 = clean_title_mod('OCT-P-00123')
         for _ in range(10):
-            self.assertEqual(clean_title_mod('TCT-066-2019006115'), val1)
+            self.assertEqual(clean_title_mod('TCT-066-2000001234'), val1)
             self.assertEqual(clean_title_mod('OCT-P-00123'), val2)
         self.assertEqual(val2, '123')
 
@@ -192,7 +192,7 @@ class TestAuditReviewFixes(unittest.TestCase):
 
     def test_clean_title_variants_sorted(self):
         """clean_title_variants should return a sorted list for deterministic indexing."""
-        variants = clean_title_variants('TCT-066-2019006115')
+        variants = clean_title_variants('TCT-066-2000001234')
         self.assertIsInstance(variants, list)
         self.assertEqual(variants, sorted(variants))
 

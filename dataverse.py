@@ -6,13 +6,11 @@ v9.2 CRUD operations for `cr63f_loamonitoring` and `APPENDED_FINANCE` tables.
 
 from __future__ import annotations
 
-import concurrent.futures as cf
 import json
 import math
 import os
 import re
 from urllib.parse import quote
-import sys
 import time
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
@@ -527,10 +525,17 @@ class DataverseClient:
                 new_etag = header_etag
         return resp.status_code, new_etag
 
-    def delete(self, entity_set: str, record_id: str) -> int:
+    def delete(self, entity_set: str, record_id: str, expected_etag: Optional[str] = None) -> int:
+        """Delete one row. With expected_etag (If-Match) the delete fails with
+        ConcurrencyError when the row changed after it was read."""
         clean_id = record_id.strip("{}'\"")
         url = f'{self.api_root}{entity_set.lstrip("/")}({clean_id})'
-        resp = self._send('delete', url, headers=self._headers(False), timeout=_TIMEOUT)
+        headers = self._headers(False)
+        if expected_etag:
+            headers['If-Match'] = expected_etag
+        resp = self._send('delete', url, headers=headers, timeout=_TIMEOUT)
+        if resp.status_code == 412:
+            raise ConcurrencyError('This record was changed in Dataverse by someone else since it was loaded. Reload and try again.')
         if not (200 <= resp.status_code < 300):
             raise RuntimeError(f"Dataverse DELETE {entity_set}({record_id}) failed ({resp.status_code}): {resp.text}")
         return resp.status_code
@@ -747,8 +752,8 @@ class DataverseClient:
 
     def get_solutions(self) -> List[Dict[str, Any]]:
         """Fetch all visible solutions from the environment."""
-        url = (f"solutions?$select=solutionid,uniquename,friendlyname,version,ismanaged,description"
-               f"&$filter=isvisible eq true&$orderby=friendlyname asc")
+        url = ("solutions?$select=solutionid,uniquename,friendlyname,version,ismanaged,description"
+               "&$filter=isvisible eq true&$orderby=friendlyname asc")
         try:
             data = self.get(url)
             return [{

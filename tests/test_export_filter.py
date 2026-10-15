@@ -91,3 +91,44 @@ class TestExportColumnFiltering(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestExportByKey(unittest.TestCase):
+    """2026-10-15: the Land Master export reads values by Dataverse name, not by grid label."""
+
+    def setUp(self):
+        with patch('dataverse.DataverseClient.try_silent_token', return_value=None):
+            self.app = Api()
+
+    def test_columns_whose_label_differs_from_dataverse_name_are_filled(self):
+        import openpyxl
+        record = {
+            '__id': '1', 'cr63f_control1': 'C-1', 'Control': 'C-1',
+            'cr63f_totalpaymentdeductibletotcp': '₱500.00', 'Total Payment Deductible to TCP': '₱500.00',
+            'cr63f_authorizedrepresentative': 'REP', 'Authorized Representative': 'REP',
+            'cr63f_dbadjustedbarangay': 'BRGY', 'DB Adjusted Barangay': 'BRGY',
+            'work_week': 'WW-42', 'Work Week': 'WW-42',
+        }
+        cols = [{'key': 'cr63f_control1', 'label': 'Control Number'},
+                {'key': 'cr63f_authorizedrepresentative', 'label': 'Authorized Rep'},
+                {'key': 'cr63f_dbadjustedbarangay', 'label': 'Adjusted Barangay'},
+                {'key': 'work_week', 'label': 'Work Week'},
+                {'key': 'cr63f_totalpaymentdeductibletotcp', 'label': 'Payment Deductible'}]
+        with tempfile.TemporaryDirectory() as tmp:
+            out = os.path.join(tmp, 'x.xlsx')
+            res = self.app.export_records_excel([record], columns=cols, destination_path=out)
+            self.assertTrue(res['success'], res)
+            ws = openpyxl.load_workbook(out).active
+            self.assertEqual([c.value for c in ws[1]],
+                             ['Control Number', 'Authorized Rep', 'Adjusted Barangay', 'Work Week', 'Payment Deductible'])
+            self.assertEqual([c.value for c in ws[2]], ['C-1', 'REP', 'BRGY', 'WW-42', '₱500.00'])
+
+    def test_blank_under_dataverse_name_is_not_replaced_by_an_older_alias(self):
+        import openpyxl
+        record = {'__id': '1', 'cr63f_registeredowner': '', 'Registered Owner': 'OLD OWNER'}
+        with tempfile.TemporaryDirectory() as tmp:
+            out = os.path.join(tmp, 'x.xlsx')
+            self.app.export_records_excel([record], columns=[{'key': 'cr63f_registeredowner', 'label': 'Registered Owner'}],
+                                          destination_path=out)
+            ws = openpyxl.load_workbook(out).active
+            self.assertIn(ws.cell(row=2, column=1).value, (None, ''))

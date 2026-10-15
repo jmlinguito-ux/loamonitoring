@@ -21,12 +21,12 @@ class TestConversionFeatures(unittest.TestCase):
 
     def test_title_normalization_and_variants(self):
         # 1. Standard prefix variants
-        variants_1 = clean_title_variants("TCT-T-56373")
-        variants_2 = clean_title_variants("T-56373")
-        variants_3 = clean_title_variants("56373")
-        self.assertIn("56373", variants_1)
-        self.assertIn("56373", variants_2)
-        self.assertIn("56373", variants_3)
+        variants_1 = clean_title_variants("TCT-T-10003")
+        variants_2 = clean_title_variants("T-10003")
+        variants_3 = clean_title_variants("10003")
+        self.assertIn("10003", variants_1)
+        self.assertIn("10003", variants_2)
+        self.assertIn("10003", variants_3)
 
         # 2. Parenthesized variants e.g. TCT (T-121628) 055-2025002708
         complex_variants = clean_title_variants("TCT (T-121628) 055-2025002708")
@@ -34,20 +34,20 @@ class TestConversionFeatures(unittest.TestCase):
         self.assertIn("2025002708", complex_variants)
 
         # 3. Clean title mod
-        self.assertEqual(clean_title_mod("TCT-CLOA-7623"), "7623")
+        self.assertEqual(clean_title_mod("TCT-CLOA-1001"), "1001")
         self.assertEqual(clean_title_mod("OCT-P-00123"), "123")
 
     def test_conversion_lookup_uses_area_index_only(self):
         conversion_data = [
             {
                 "AREA-INDEX": "NAS-1397",
-                "TITLE NUMBER": "TCT-T-56373",
+                "TITLE NUMBER": "TCT-T-10003",
                 "DAR STATUS": "DAR SECURED",
                 "NIA STATUS": "NIA INSPECTION DONE",
                 "CONVERSION CLASS": "Class A"
             },
             {
-                "AREA-INDEX": "TUY-7786",
+                "AREA-INDEX": "TST-7786",
                 "TITLE NUMBER": "TCT (T-121628) 055-2025002708",
                 "DAR STATUS": "DAR FOR APPLICATION",
                 "NIA STATUS": "NIA FOR APPLICATION",
@@ -108,11 +108,11 @@ class TestConversionFeatures(unittest.TestCase):
         conversion_rows = [
             {
                 "AREA-INDEX": "NAS-1397",
-                "TITLE NUMBER": "TCT-T-56373",
+                "TITLE NUMBER": "TCT-T-10003",
                 "DAR STATUS": "DAR SECURED",
             },
             {
-                "AREA-INDEX": "TUY-7786",
+                "AREA-INDEX": "TST-7786",
                 "TITLE NUMBER": "TCT (T-121628) 055-2025002708",
                 "DAR STATUS": "DAR FOR APPLICATION",
             }
@@ -121,7 +121,7 @@ class TestConversionFeatures(unittest.TestCase):
             {
                 "TYPE": "LAND",
                 "Area Index": "NAS-1397",
-                "Title Mod": "T-56373",
+                "Title Mod": "T-10003",
                 "Total Contract Price": "5,000,000.00",
                 "Total Payment Deductible to TCP": "2,000,000.00",
                 "% Paid": "40.00%",
@@ -139,7 +139,7 @@ class TestConversionFeatures(unittest.TestCase):
                 "__id": "rec-1",
                 "cr63f_type": "LAND",
                 "cr63f_areaindex": "NAS-1397",
-                "cr63f_titleno": "TCT-T-56373",
+                "cr63f_titleno": "TCT-T-10003",
                 "cr63f_conversionstatus": "NOT YET ENDORSED",
                 "cr63f_totalcontractprice": "",
                 "cr63f_totalpaymentdeductibletotcp": "",
@@ -149,7 +149,7 @@ class TestConversionFeatures(unittest.TestCase):
             {
                 "__id": "rec-2",
                 "cr63f_type": "LAND",
-                "cr63f_areaindex": "TUY-7786",
+                "cr63f_areaindex": "TST-7786",
                 "cr63f_titleno": "T-121628",
                 "cr63f_conversionstatus": "DAR FOR APPLICATION", # Already same
                 "cr63f_totalcontractprice": "",

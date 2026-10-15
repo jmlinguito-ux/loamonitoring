@@ -43,7 +43,6 @@ from __future__ import annotations
 import csv
 from datetime import datetime, timedelta
 from decimal import ROUND_HALF_UP, Decimal, InvalidOperation, localcontext
-import io
 import math
 import os
 import re
@@ -297,7 +296,7 @@ def get_work_week(date_value: Any) -> str:
         return ""
     s_date = s.split("T")[0].split(" ")[0].strip()
     s_date = s_date.replace('.', '/')
-    for fmt in ("%m/%d/%Y", "%m/%d/%y", "%Y-%m-%d", "%Y/%m/%d", "%d/%m/%Y"):
+    for fmt in ("%m/%d/%Y", "%m/%d/%y", "%Y-%m-%d", "%Y/%m/%d", "%m-%d-%Y", "%m-%d-%y", "%d/%m/%Y"):
         try:
             d = datetime.strptime(s_date, fmt)
             if d.year <= 1900:
@@ -810,7 +809,7 @@ class FinanceLookupEngine:
 
 
 def _title_number_segments(value: Any) -> List[str]:
-    """Numeric segments of a title after its type prefix: 'TCT-066-2019006115' -> ['66', '2019006115']."""
+    """Numeric segments of a title after its type prefix: 'TCT-066-2000001234' -> ['66', '2000001234']."""
     key = _strict_title_key(value)
     return [seg.lstrip('0') or '0' for seg in re.findall(r'\d+', key)]
 
@@ -818,9 +817,9 @@ def _title_number_segments(value: Any) -> List[str]:
 def _title_segments_compatible(query: List[str], candidate: List[str]) -> bool:
     """True unless the two titles carry different numbers in the same position.
 
-    The shorter list must be the tail of the longer one, so '2019006115'
-    matches '066-2019006115', but '999-2019006115' does not match
-    '066-2019006115' just because the suffix is shared.
+    The shorter list must be the tail of the longer one, so '2000001234'
+    matches '066-2000001234', but '999-2000001234' does not match
+    '066-2000001234' just because the suffix is shared.
     """
     if not query or not candidate:
         return True
@@ -925,7 +924,7 @@ def set_text_safe(cell, value: Any) -> None:
 def write_excel_file(file_path: str, headers: List[str], rows: List[Dict[str, Any]], sheet_name: str = "LOA Records") -> None:
     """Write rows to Excel file with formatted headers and widths."""
     import openpyxl
-    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+    from openpyxl.styles import Font, PatternFill, Alignment
     from openpyxl.utils import get_column_letter
 
     wb = openpyxl.Workbook()
@@ -935,12 +934,6 @@ def write_excel_file(file_path: str, headers: List[str], rows: List[Dict[str, An
     # Header styling
     header_font = Font(name="Calibri", size=11, bold=True, color="FFFFFF")
     header_fill = PatternFill(start_color="1A56DB", end_color="1A56DB", fill_type="solid")
-    thin_border = Border(
-        left=Side(style='thin', color='D1D5DB'),
-        right=Side(style='thin', color='D1D5DB'),
-        top=Side(style='thin', color='D1D5DB'),
-        bottom=Side(style='thin', color='D1D5DB'),
-    )
 
     ws.append(headers)
     for col_num in range(1, len(headers) + 1):

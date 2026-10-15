@@ -69,10 +69,10 @@ class TestLookupDuplicates(unittest.TestCase):
 
     def test_title_fallback_rejects_conflicting_number_segments(self):
         engine = FinanceLookupEngine([
-            {'TYPE': 'SALE', 'Title Mod': 'TCT-066-2019006115', 'Total Contract Price': '300'},
+            {'TYPE': 'SALE', 'Title Mod': 'TCT-066-2000001234', 'Total Contract Price': '300'},
         ])
-        self.assertFalse(engine.lookup('SALE', '', 'X', 'TCT-999-2019006115')['matched'])
-        self.assertTrue(engine.lookup('SALE', '', 'X', '2019006115')['matched'])
+        self.assertFalse(engine.lookup('SALE', '', 'X', 'TCT-999-2000001234')['matched'])
+        self.assertTrue(engine.lookup('SALE', '', 'X', '2000001234')['matched'])
 
     def test_update_from_references_reports_conflicts(self):
         app = _api()

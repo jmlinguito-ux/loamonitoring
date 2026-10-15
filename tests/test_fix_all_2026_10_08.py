@@ -143,10 +143,10 @@ class TestFinanceLookupFixes(unittest.TestCase):
 
     def test_agreeing_duplicate_titles_match(self):
         engine = FinanceLookupEngine()
-        row = {'TYPE': 'SALE', 'Title Mod': 'TCT-066-2019006115',
+        row = {'TYPE': 'SALE', 'Title Mod': 'TCT-066-2000001234',
                'Total Contract Price': '1,000', 'Total Payment Deductible to TCP': '100'}
         engine.load_rows([dict(row), dict(row)])
-        res = engine.lookup('SALE', '', '', 'TCT-066-2019006115', 'SECURED SALE')
+        res = engine.lookup('SALE', '', '', 'TCT-066-2000001234', 'SECURED SALE')
         self.assertTrue(res.get('matched'), res)
         self.assertFalse(res.get('ambiguous'), res)
 
@@ -161,7 +161,7 @@ class TestStagedTitleChangeIsLogged(unittest.TestCase):
 
     def test_title_and_owner_both_appear_in_entry_logs(self):
         app = _api()
-        before = {'__id': 'rec-1', 'cr63f_control1': 'BAT-NAS-004411', 'cr63f_areaindex': 'NAS-272',
+        before = {'__id': 'rec-1', 'cr63f_control1': 'TST-ABC-000101', 'cr63f_areaindex': 'TST-272',
                   'cr63f_indexno': 'I-1', 'cr63f_titleno': 'TCT-OLD', 'cr63f_registeredowner': 'JUAN'}
         app.loa_records = [dict(before)]
         baseline = {**before, 'cr63f_actiontype': 'BASELINE', 'cr63f_fieldchanged': 'Full Record',
@@ -169,10 +169,10 @@ class TestStagedTitleChangeIsLogged(unittest.TestCase):
                     '__createdon_raw': '2026-10-14T08:05:00Z', '__id': 'base-1'}
         with patch.object(app, '_write_baseline_if_missing', return_value=None):
             res = app.save_staged_records([{'id': 'rec-1', 'action_type': 'MANUAL_EDIT', 'fields': {
-                'cr63f_titleno': 'TCT-T-52585', 'cr63f_registeredowner': 'DOMINGO MALABANAN ET AL'}}])
+                'cr63f_titleno': 'TCT-T-10001', 'cr63f_registeredowner': 'JUAN DELA CRUZ ET AL'}}])
         self.assertTrue(res['success'], res)
         snapshot = app.dv_client.save_log_record.call_args[0][0]
-        self.assertEqual(snapshot['cr63f_titleno'], 'TCT-T-52585')
+        self.assertEqual(snapshot['cr63f_titleno'], 'TCT-T-10001')
         snapshot = {**snapshot, '__createdon_raw': '2026-10-14T08:06:00Z', '__id': 'snap-1'}
         fields = {l['field_name'] for l in derive_field_diffs_from_snapshots([baseline, snapshot])}
         self.assertIn('Title No', fields)

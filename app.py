@@ -11,8 +11,6 @@ import os
 import re
 import sys
 import threading
-import time
-import uuid
 from decimal import Decimal, InvalidOperation
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timedelta
@@ -38,18 +36,14 @@ from loa_engine import (
     _strict_title_key as _strict_title,
     ConversionLookupEngine,
     FinanceLookupEngine,
-    calculate_paid_percent,
-    clean_title_variants,
     conversion_rank,
     format_calculated_percent,
     format_currency,
-    finance_mode_class,
     format_percent,
     get_work_week,
     get_work_week_info,
     get_work_week_label,
     norm_key,
-    norm_str,
     paid_percent_for_storage,
     parse_float,
     parse_log_datetime,
@@ -296,29 +290,41 @@ def _record_mode(record: Dict[str, Any]) -> str:
     return str(record.get('new_mode') or record.get('Mode') or record.get('MODE') or '').strip().upper() or 'BLANK'
 
 
+# Exact Mode lists per payment group (decision 2026-10-13/14, exact lists 2026-10-15).
+# Any Mode not listed, e.g. OPEN TO SALE or OPEN TO LEASE, is OTHER: it is not a
+# secured sale or lease, so it stays out of % Paid and the balance to pay.
+# web/app.js PAYMENT_GROUP_OF_MODE holds the same table (tests/test_mode_group_parity.py).
+PAYMENT_GROUP_OF_MODE = {
+    'SECURED SALE': 'DIRECT_SALE', 'SS - FROM LAND': 'DIRECT_SALE', 'SS - FROM ROW': 'DIRECT_SALE',
+    'SECURED LEASE': 'LEASE_DIRECT', 'SL - FROM LAND': 'LEASE_DIRECT',
+    'SS - STP': 'STP_SALE', 'SS - FROM LAND STP': 'STP_SALE', 'SOLD TO PARTNER': 'STP_SALE',
+    'SL - STP': 'LEASE_STP', 'SL - FROM LAND STP': 'LEASE_STP',
+    'SECURED SALE NON SP': 'NON_SP', 'SECURED LEASE NON SP': 'NON_SP',
+    'RESCINDED': 'RESCINDED', 'SS - RESCINDED': 'RESCINDED', 'SL - RESCINDED': 'RESCINDED',
+}
+
+
+def _normalize_mode(mode: Any) -> str:
+    """Upper case, one space around each dash, 'NON-SP'/'NONSP' read as 'NON SP'."""
+    m = str(mode or '').upper().replace('\u2013', '-').replace('\u2014', '-')
+    m = re.sub(r'\bNON\s*-?\s*SP\b', 'NON SP', m)
+    m = re.sub(r'\s*-\s*', ' - ', m)
+    m = re.sub(r'\s+', ' ', m).strip()
+    return m.replace(' - NON SP', ' NON SP')
+
+
 def _payment_group(mode: Any) -> str:
-    """Payment group of a Mode (decision 2026-10-13/14).
+    """Payment group of a Mode.
 
     DIRECT_SALE  SECURED SALE, SS - FROM LAND, SS - FROM ROW   tracked as paid/unpaid
-    STP_SALE     SS - STP, SS - FROM LAND STP                  turned over to partner; buyer pays balance
+    STP_SALE     SS - STP, SS - FROM LAND STP (SOLD TO PARTNER) turned over to partner; buyer pays balance
     LEASE_DIRECT SECURED LEASE, SL - FROM LAND                 rent basis
     LEASE_STP    SL - STP, SL - FROM LAND STP                  turned over to partner
-    NON_SP       SECURED SALE NON SP, SECURED LEASE NON SP     not in % paid (decision 2026-10-14)
+    NON_SP       SECURED SALE NON SP, SECURED LEASE NON SP     not in % paid
     RESCINDED    RESCINDED, SS - RESCINDED, SL - RESCINDED
-    OTHER        blank or not a sale/lease Mode
+    OTHER        blank or any other Mode (OPEN TO SALE, OPEN TO LEASE, FOR VERIFICATION, ...)
     """
-    m = str(mode or '').strip().upper()
-    if 'RESCIND' in m:
-        return 'RESCINDED'
-    if re.search(r'\bNON[\s-]*SP\b', m):
-        return 'NON_SP'
-    is_stp = bool(re.search(r'\bSTP\b', m)) or 'SOLD TO PARTNER' in m
-    mode_class = finance_mode_class(m)
-    if mode_class == 'LEASE':
-        return 'LEASE_STP' if is_stp else 'LEASE_DIRECT'
-    if mode_class == 'SALE':
-        return 'STP_SALE' if is_stp else 'DIRECT_SALE'
-    return 'OTHER'
+    return PAYMENT_GROUP_OF_MODE.get(_normalize_mode(mode), 'OTHER')
 
 
 def _endorsed_is_blank(record: Dict[str, Any]) -> bool:
@@ -590,9 +596,6 @@ def build_log_entry(
         rec = full_record
         ctrl = _extract_val(rec, ['cr63f_control1', 'cr63f_control', 'Control', 'Control Number', 'Control No.', 'Control No'])
         r_type = _extract_val(rec, ['cr63f_type', 'Type', 'TYPE'])
-        idx_no = index_no or _extract_val(rec, ['cr63f_indexno', 'Index No', 'INDEX NO', 'Index No.', 'index_no'])
-        a_idx = area_index or _extract_val(rec, ['cr63f_areaindex', 'Area-Index', 'AREA-INDEX', 'Area Index', 'area_index'])
-        t_no = title_no or _extract_val(rec, ['cr63f_titleno', 'Title No', 'TITLE NO', 'Title No.', 'Title Number', 'title_no', 'Title Mod'])
         owner = _extract_val(rec, ['cr63f_registeredowner', 'Registered Owner', 'registered_owner', 'Owner'])
         rep = _extract_val(rec, ['cr63f_authorizedrepresentative', 'Authorized Representative', 'Authorized Rep', 'authorized_representative', 'Rep'])
         ent = _extract_val(rec, ['cr63f_entity', 'Entity', 'entity'])
@@ -1399,7 +1402,7 @@ class Api:
                         if not outcome['baseline'] and outcome['item'].get('previous_record'):
                             anchor = build_log_entry(
                                 action_type='BASELINE',
-                                work_week=outcome['item']['snapshot'].get('work_week') or ww,
+                                work_week=outcome['item']['snapshot'].get('work_week') or get_work_week(datetime.now()),
                                 now_str=now_str,
                                 area_index=outcome['item']['snapshot'].get('area_index') or '',
                                 index_no=outcome['item']['snapshot'].get('index_no') or '',
@@ -2498,8 +2501,8 @@ class Api:
             ]
 
             sample_rows = [
-                ["NAS-1383", "TCT-T-56366", "748, PSD-34336", "DAR SECURED", "NIA INSPECTION DONE", "Class A", "DAR-BAT3-19", "11/23/2025", "MBHC", "NASUGBU", "LATAG", 2.25],
-                ["TUY-7742", "TCT-T-121628", "2-B-4-E", "DAR FOR APPLICATION", "NIA FOR APPLICATION", "Class A", "DAR-BAT3-36", "11/23/2025", "PIC", "TUY", "MAGAHIS", 0.381],
+                ["TST-1383", "TCT-T-10004", "101, PSD-10001", "DAR SECURED", "NIA INSPECTION DONE", "Class A", "DAR-BAT3-19", "11/23/2025", "MBHC", "NASUGBU", "LATAG", 2.25],
+                ["TST-7742", "TCT-T-100005", "1-A-1-A", "DAR FOR APPLICATION", "NIA FOR APPLICATION", "Class A", "DAR-BAT3-36", "11/23/2025", "PIC", "TUY", "MAGAHIS", 0.381],
             ]
 
             header_fill = PatternFill(start_color="0D9488", end_color="0D9488", fill_type="solid")
@@ -3043,27 +3046,23 @@ class Api:
             return {'success': False, 'error': 'Audit logs cannot be deleted. Use Revert for an eligible field.'}
         target_str = str(record_id).strip()
         target_log = None
-        target_idx = -1
 
         for idx, r in enumerate(self.log_records):
             r_id = str(r.get('__id') or r.get('id') or r.get('cr63f_loamonitoringlogid') or '').strip()
             if r_id and r_id == target_str:
                 target_log = r
-                target_idx = idx
                 break
 
         if target_log is None and target_str.isdigit():
             idx = int(target_str)
             if 0 <= idx < len(self.log_records):
                 target_log = self.log_records[idx]
-                target_idx = idx
 
         if target_log is None and target_str.startswith('log_idx_'):
             try:
                 idx = int(target_str.replace('log_idx_', ''))
                 if 0 <= idx < len(self.log_records):
                     target_log = self.log_records[idx]
-                    target_idx = idx
             except Exception:
                 pass
 
@@ -3889,7 +3888,7 @@ class Api:
                             if orig_rec:
                                 anchor = build_log_entry(
                                     action_type='BASELINE',
-                                    work_week=log_row.get('work_week') or ww,
+                                    work_week=log_row.get('work_week') or get_work_week(datetime.now()),
                                     now_str=now_str,
                                     area_index=log_row.get('area_index') or '',
                                     index_no=log_row.get('index_no') or '',
@@ -4064,7 +4063,6 @@ class Api:
         """Compute weekly intelligence metrics, mode distribution, conversion analytics, and change activity."""
         all_records = self.loa_records or []
         logs = self.log_records or []
-        conv_rows = self.conversion_rows or []
 
         selected_mode_input = (mode or '').strip().upper()
         if selected_mode_input and selected_mode_input != 'ALL':
@@ -4161,27 +4159,28 @@ class Api:
             gt['tcp'] += g_tcp
             gt['paid'] += g_ded
             gt['balance'] += max(0.0, g_tcp - g_ded)
-            mode_class = finance_mode_class(mode)
-            is_stp = bool(re.search(r'\bSTP\b', mode)) or 'SOLD TO PARTNER' in mode
-            if 'RESCIND' in mode:
+            # Same exact groups as the totals above: an unlisted Mode (OPEN TO SALE,
+            # OPEN TO LEASE, ...) is OTHER, never a secured sale or lease.
+            group = _payment_group(mode)
+            if group == 'RESCINDED':
                 rescinded_count += 1
                 continue
-            if _payment_group(mode) == 'NON_SP':
+            if group == 'NON_SP':
                 non_sp_count += 1
                 continue
-            if mode_class == 'LEASE':
-                if is_stp:
-                    lease_stp_count += 1
-                else:
-                    lease_direct_count += 1
-                    lease_direct_tcp += _record_tcp(r)
-                    lease_direct_ded += _record_deductible(r)
+            if group == 'LEASE_STP':
+                lease_stp_count += 1
                 continue
-            if mode_class != 'SALE':
-                other_count += 1
+            if group == 'LEASE_DIRECT':
+                lease_direct_count += 1
+                lease_direct_tcp += _record_tcp(r)
+                lease_direct_ded += _record_deductible(r)
                 continue
-            if is_stp:
+            if group == 'STP_SALE':
                 stp_sale_count += 1
+                continue
+            if group != 'DIRECT_SALE':
+                other_count += 1
                 continue
             tcp_v = _record_tcp(r)
             ded_v = _record_deductible(r)
@@ -4458,7 +4457,6 @@ class Api:
             fld = field_key(log)
             action = log.get('action_type') or log.get('Action Type') or ''
             source = self._source_of(action)
-            ts = log_datetime(log)
             author = str(log.get('createdby') or log.get('author') or log.get('modifiedby')
                          or log.get('cr63f_createdby') or log.get('User') or '').strip()
             if not author and not (log.get('createdon') or log.get('__createdon_raw')):
@@ -4850,15 +4848,23 @@ class Api:
         """
         if not self.dv_client:
             return {'success': False, 'error': 'Dataverse is not connected.'}
-        record = next((dict(r) for r in self.loa_records if str(r.get('__id') or '') == str(record_id)), None)
+        loaded = next((r for r in self.loa_records if str(r.get('__id') or '') == str(record_id)), None)
+        table_name = self.dv_client.config.get('loa_table', 'cr63f_loamonitoring')
+        # Always read the current row: the DELETE audit row then holds the values
+        # actually deleted, and the delete is conditional on that version.
         try:
-            if record is None:
-                table_name = self.dv_client.config.get('loa_table', 'cr63f_loamonitoring')
-                record = self.dv_client.get_record(table_name, record_id)
+            record = self.dv_client.get_record(table_name, record_id)
         except Exception as exc:
             return {'success': False, 'error': f'Cannot read the account to delete: {exc}'}
         if not record or not isinstance(record, dict):
             return {'success': False, 'error': f'Account {record_id} was not found.'}
+        current_etag = str(record.get('__etag') or '')
+        loaded_etag = str((loaded or {}).get('__etag') or '')
+        if loaded_etag and current_etag and loaded_etag != current_etag:
+            return {'success': False, 'error': 'This account was changed in Dataverse by someone else since it was loaded. Reload, check it, and delete again if needed.'}
+        if loaded:
+            # Display names and work week the app shows, under the current values.
+            record = {**loaded, **record}
         record['__id'] = record.get('__id') or record_id
         control = str(_get_field_val(record, ['cr63f_control1', 'Control', 'Control Number']) or '').strip()
         area_idx = str(_get_field_val(record, ['cr63f_areaindex', 'Area-Index', 'AREA-INDEX']) or '').strip()
@@ -4878,9 +4884,8 @@ class Api:
         except Exception as exc:
             return {'success': False, 'error': f'Nothing was deleted: the audit row could not be written ({exc}).'}
         try:
-            table_name = self.dv_client.config.get('loa_table', 'cr63f_loamonitoring')
             info = self.dv_client.get_entity_info(table_name)
-            self.dv_client.delete(info['entity_set'], record_id)
+            self.dv_client.delete(info['entity_set'], record_id, expected_etag=current_etag or None)
         except Exception as exc:
             try:
                 if log_entry.get('__id'):
@@ -5010,9 +5015,23 @@ class Api:
                     return True
                 return False
 
-            # Determine export columns
+            # Determine export columns. A column is a name, or {'key', 'label'}: the
+            # Land Master grid sends its Dataverse name (key) with the heading it
+            # shows (label), so values are found even where the two differ.
+            col_keys: Dict[str, str] = {}
             if columns and len(columns) > 0:
-                export_cols = [c for c in columns if not is_excluded_col(c)]
+                export_cols = []
+                for c in columns:
+                    if isinstance(c, dict):
+                        key = str(c.get('key') or '').strip()
+                        label = str(c.get('label') or key).strip()
+                    else:
+                        key, label = '', str(c)
+                    if is_excluded_col(label) or key.startswith('__') or label in export_cols:
+                        continue
+                    export_cols.append(label)
+                    if key:
+                        col_keys[label] = key
             else:
                 # Filter keys from records: exclude system cols and logical cr63f_ prefixes if display name exists
                 collected: List[str] = []
@@ -5020,7 +5039,6 @@ class Api:
                     for k in r.keys():
                         if is_excluded_col(k):
                             continue
-                        low = k.lower().strip()
                         # If logical column like cr63f_... and display label is also in record, omit raw cr63f_
                         if k.startswith(('cr63f_', 'new_')):
                             k_core = re.sub(r'^(cr63f_|new_)', '', k).lower().replace('_', '')
@@ -5039,11 +5057,21 @@ class Api:
 
             # Build clean row dictionaries using only export_cols
             cleaned_rows = []
+            def keyed_value(rec: Dict[str, Any], key: str) -> Any:
+                # The Dataverse name first: it is what the grid edits. A blank
+                # there is a real blank, not a reason to show an older alias.
+                if key in rec:
+                    return rec.get(key)
+                canonical = CANONICAL_FIELD_MAP.get(key, key)
+                spec = next((s for s in LOG_COMPARE_SPECS if key in s[1] or s[0] == canonical), None)
+                aliases = (list(spec[1]) if spec else []) + [canonical]
+                return _get_field_val(rec, aliases)
+
             for r in records:
                 row_dict = {}
                 for col in export_cols:
-                    val = r.get(col, '')
-                    if (val is None or val == '') and not col.startswith(('cr63f_', 'new_')):
+                    val = keyed_value(r, col_keys[col]) if col in col_keys else r.get(col, '')
+                    if (val is None or val == '') and col not in col_keys and not col.startswith(('cr63f_', 'new_')):
                         clean_c = col.lower().replace(' ', '').replace('-', '').replace('_', '')
                         for rk, rv in r.items():
                             if rv is not None and rv != '' and not is_excluded_col(rk):

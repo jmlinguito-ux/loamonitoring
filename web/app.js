@@ -2331,6 +2331,9 @@
     }
     if (y <= 1900) return '';
     const dateObj = new Date(Date.UTC(y, m, d));
+    // An impossible date (13/13/2026, 2/30/2026) has no work week: Date.UTC would
+    // roll it into another month, while the Python engine returns ''.
+    if (dateObj.getUTCFullYear() !== y || dateObj.getUTCMonth() !== m || dateObj.getUTCDate() !== d) return '';
     const pyWeekday = (dateObj.getUTCDay() + 6) % 7;
     // Tuesday-to-Monday weeks (decision 2026-10-14), same rule as loa_engine.get_work_week_info:
     // a week belongs to the year its Saturday falls in, and WW-01 is the first week
@@ -3790,7 +3793,7 @@
 
   function filterAndRenderRecords() {
     const q = dom.searchInput.value.toLowerCase().trim();
-    // Comma-separated search (decision 2026-10-14): "BAT-NAS-004411, TAN-248" shows the
+    // Comma-separated search (decision 2026-10-14): "TST-ABC-000101, TST-248" shows the
     // records that match ANY of the terms. A single term works as before.
     const searchTerms = q.split(',').map(t => t.trim()).filter(Boolean);
     const typeSel = getTypeFilter().values();
@@ -4291,6 +4294,30 @@
     recalculateKPIs();
   }
 
+  // Exact Mode lists per payment group, same table as app.py PAYMENT_GROUP_OF_MODE
+  // (tests/test_mode_group_parity.py). Any other Mode, e.g. OPEN TO SALE or OPEN TO
+  // LEASE, is OTHER: not a secured sale or lease, so not in % Paid or the balance.
+  const PAYMENT_GROUP_OF_MODE = {
+    'SECURED SALE': 'DIRECT_SALE', 'SS - FROM LAND': 'DIRECT_SALE', 'SS - FROM ROW': 'DIRECT_SALE',
+    'SECURED LEASE': 'LEASE_DIRECT', 'SL - FROM LAND': 'LEASE_DIRECT',
+    'SS - STP': 'STP_SALE', 'SS - FROM LAND STP': 'STP_SALE', 'SOLD TO PARTNER': 'STP_SALE',
+    'SL - STP': 'LEASE_STP', 'SL - FROM LAND STP': 'LEASE_STP',
+    'SECURED SALE NON SP': 'NON_SP', 'SECURED LEASE NON SP': 'NON_SP',
+    'RESCINDED': 'RESCINDED', 'SS - RESCINDED': 'RESCINDED', 'SL - RESCINDED': 'RESCINDED',
+  };
+
+  function normalizePaymentMode(mode) {
+    return String(mode ?? '').toUpperCase().replace(/[\u2013\u2014]/g, '-')
+      .replace(/\bNON\s*-?\s*SP\b/g, 'NON SP')
+      .replace(/\s*-\s*/g, ' - ')
+      .replace(/\s+/g, ' ').trim()
+      .replace(' - NON SP', ' NON SP');
+  }
+
+  function paymentGroupOf(mode) {
+    return PAYMENT_GROUP_OF_MODE[normalizePaymentMode(mode)] || 'OTHER';
+  }
+
   function recalculateKPIs() {
     let sumTcp = 0;
     let sumDed = 0;
@@ -4305,13 +4332,8 @@
     // what the company still owes: direct sale + secured lease.
     const groupOf = (r) => {
       const staged = stagedOf(r);
-      const mode = String(staged['new_mode'] ?? staged['Mode'] ?? r['new_mode'] ?? r['Mode'] ?? r['MODE'] ?? r['cr63f_mode'] ?? '').trim().toUpperCase();
-      if (mode.includes('RESCIND')) return 'RESCINDED';
-      if (/\bNON[\s-]*SP\b/.test(mode)) return 'NON_SP';
-      const stp = /\bSTP\b/.test(mode) || mode.includes('SOLD TO PARTNER');
-      if (/\bLEASE\b/.test(mode) || /^SL\b/.test(mode)) return stp ? 'LEASE_STP' : 'LEASE';
-      if (/\bSALE\b/.test(mode) || /^SS\b/.test(mode) || stp) return stp ? 'STP_SALE' : 'DIRECT_SALE';
-      return 'OTHER';
+      const group = paymentGroupOf(staged['new_mode'] ?? staged['Mode'] ?? r['new_mode'] ?? r['Mode'] ?? r['MODE'] ?? r['cr63f_mode'] ?? '');
+      return group === 'LEASE_DIRECT' ? 'LEASE' : group;
     };
     const BALANCE_GROUPS = ['DIRECT_SALE', 'LEASE'];
     const groups = {};
@@ -4622,12 +4644,24 @@
     const cols = (state.colOrder.length ? state.colOrder : DEFAULT_COLUMNS.map(c => c.key))
       .filter(k => state.visibleCols.has(k) && !k.startsWith('__') && !k.startsWith('_'))
       .map(k => {
+        // Values are read by the Dataverse name (key); the label is only the heading.
+        // Reading by label left columns blank where the grid label differs from the
+        // Dataverse display name, e.g. Payment Deductible (fixed 2026-10-15).
         const c = DEFAULT_COLUMNS.find(dc => dc.key === k);
-        return (c && c.label) ? c.label : k;
+        return { key: k, label: (c && c.label) ? c.label : k };
       });
-    const res = await window.pywebview.api.export_records_excel(toExport, 'LOA_Monitoring_Export.xlsx', cols);
-    if (res.success) {
-      showToast(`Exported to ${res.file_path}`, 'ok');
+    await runExport(() => window.pywebview.api.export_records_excel(toExport, 'LOA_Monitoring_Export.xlsx', cols));
+  }
+
+  // One result handler for every Excel export: a failure (file open in Excel, folder
+  // not writable) used to show nothing; a cancelled save dialog stays silent.
+  async function runExport(call) {
+    try {
+      const res = await call();
+      if (res && res.success) showToast(`Exported to ${res.file_path}`, 'ok');
+      else if (!(res && res.cancelled)) showToast((res && res.error) || 'The export could not be saved.', 'err');
+    } catch (err) {
+      showToast('The export could not be saved: ' + (err && err.message ? err.message : err), 'err');
     }
   }
 
@@ -6360,10 +6394,7 @@
       return;
     }
     const cols = getFinanceVisibleColumns();
-    const res = await window.pywebview.api.export_records_excel(toExport, 'Finance_Data_Export.xlsx', cols);
-    if (res.success) {
-      showToast(`Exported to ${res.file_path}`, 'ok');
-    }
+    await runExport(() => window.pywebview.api.export_records_excel(toExport, 'Finance_Data_Export.xlsx', cols));
   }
 
   async function downloadFinanceTemplate() {
@@ -7551,10 +7582,7 @@
       return;
     }
     const cols = getConversionVisibleColumns();
-    const res = await window.pywebview.api.export_records_excel(toExport, 'Conversion_Data_Export.xlsx', cols);
-    if (res.success) {
-      showToast(`Exported to ${res.file_path}`, 'ok');
-    }
+    await runExport(() => window.pywebview.api.export_records_excel(toExport, 'Conversion_Data_Export.xlsx', cols));
   }
 
   async function downloadConversionTemplate() {
@@ -8831,8 +8859,7 @@ function renderLogsChunk(startIdx, count) {
       return;
     }
     const cols = LOGS_COLUMNS.filter(c => !c.key.startsWith('__')).map(c => c.label);
-    const res = await window.pywebview.api.export_logs_excel(toExport, 'Entry_Logs_Export.xlsx', cols);
-    if (res.success) showToast(`Exported to ${res.file_path}`, 'ok');
+    await runExport(() => window.pywebview.api.export_logs_excel(toExport, 'Entry_Logs_Export.xlsx', cols));
   }
 
   function revertMasterRecordInState(logItem, upRec) {
@@ -9617,8 +9644,11 @@ function renderLogsChunk(startIdx, count) {
     if (!query) return;
     const cleanQ = String(query).trim();
     if (dom.searchInput) dom.searchInput.value = cleanQ;
+    // Clear both filters: a Type left selected could hide the account (0 records).
+    getTypeFilter().setSelected([]);
     getModeFilter().setSelected([]);
-    updateModeBadge();
+    populateTypeFilter(state.records);
+    populateModeFilter(state.records);
     switchView('records');
     filterAndRenderRecords();
     showToast(`Showing Land Master records matching "${cleanQ}".`, 'ok');

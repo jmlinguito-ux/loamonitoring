@@ -93,7 +93,7 @@
         <div class="panel">
           <div class="panel-head data-toolbar ledger-toolbar">
             <div class="toolbar-filters" role="search" aria-label="Filter Land Master records">
-              <input type="search" id="searchInput" name="land-master-search" autocomplete="off" aria-label="Search Land Master records" class="input toolbar-search" placeholder="Search records… (use commas for several)" title="Search several values at once by separating them with commas, e.g. BAT-NAS-004411, TAN-248." />
+              <input type="search" id="searchInput" name="land-master-search" autocomplete="off" aria-label="Search Land Master records" class="input toolbar-search" placeholder="Search records… (use commas for several)" title="Search several values at once by separating them with commas, e.g. TST-ABC-000101, TST-248." />
               <div id="typeFilter" class="multi-filter toolbar-select-sm toolbar-filter-first"></div>
               <div id="modeFilterPanel" class="multi-filter toolbar-select-md toolbar-filter-second" title="Filter by Mode"></div>
               <button class="btn xs ghost toolbar-clear" id="btnClearFilters" title="Clear filters and search">Clear Filters</button>
@@ -430,7 +430,7 @@
               <div class="form-row">
                 <label class="form-label" for="cfgEnvUrl">Environment URL</label>
                 <div class="form-control" style="flex: 1;">
-                  <input type="url" id="cfgEnvUrl" name="environment-url" autocomplete="off" class="input mono-input" style="width: 100%;" placeholder="https://orgfa075889.crm.dynamics.com" />
+                  <input type="url" id="cfgEnvUrl" name="environment-url" autocomplete="off" class="input mono-input" style="width: 100%;" placeholder="https://yourorg.crm.dynamics.com" />
                 </div>
               </div>
 
@@ -659,7 +659,7 @@
 
         <div style="display: flex; flex-direction: column; gap: 4px;">
           <label class="form-label" for="fControl">CONTROL NUMBER <span aria-hidden="true">*</span></label>
-          <input type="text" id="fControl" class="input mono-input" placeholder="e.g. ZAM-PAL-06225" required />
+          <input type="text" id="fControl" class="input mono-input" placeholder="e.g. ABC-DEF-00001" required />
         </div>
 
         <!-- 2. Payment Status (Manual entry & live calculation) -->

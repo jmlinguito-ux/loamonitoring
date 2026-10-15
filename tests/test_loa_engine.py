@@ -122,7 +122,7 @@ class TestFinanceLookupEngine(unittest.TestCase):
         sale = {
             "TYPE": "SALE",
             "Area Index": "PAG-122",
-            "Title Mod": "TCT-066-2019006115",
+            "Title Mod": "TCT-066-2000001234",
             "Total Contract Price": "3,000,030",
             "Total Payment Deductible to TCP": "3,000,030",
         }
@@ -130,7 +130,7 @@ class TestFinanceLookupEngine(unittest.TestCase):
             "TYPE": "ROW",
             "Corridor Index": "OTHER-ROW",
             "Area Index": "CON-1601",
-            "Title Mod": "043-2019006115",
+            "Title Mod": "043-2000001234",
             "Total Contract Price": "300,000",
             "Total Payment Deductible to TCP": "150,000",
         }
@@ -138,9 +138,9 @@ class TestFinanceLookupEngine(unittest.TestCase):
 
         result = engine.lookup(
             type_val="ROW",
-            index_no="TARROW-CON-00932",
+            index_no="TARROW-TST-00901",
             area_index_val="1601",
-            title_mod_val="TCT-043-2019006115",
+            title_mod_val="TCT-043-2000001234",
         )
 
         self.assertTrue(result["matched"])
@@ -150,15 +150,15 @@ class TestFinanceLookupEngine(unittest.TestCase):
 
     def test_ambiguous_shared_title_suffix_does_not_pick_first_reference(self):
         engine = FinanceLookupEngine([
-            {"TYPE": "SALE", "Title Mod": "TCT-066-2019006115", "Total Contract Price": "3000030"},
-            {"TYPE": "ROW", "Title Mod": "043-2019006115", "Total Contract Price": "300000"},
+            {"TYPE": "SALE", "Title Mod": "TCT-066-2000001234", "Total Contract Price": "3000030"},
+            {"TYPE": "ROW", "Title Mod": "043-2000001234", "Total Contract Price": "300000"},
         ])
 
         result = engine.lookup(
             type_val="LOT",
             index_no="",
             area_index_val="NO-MATCH",
-            title_mod_val="TCT-999-2019006115",
+            title_mod_val="TCT-999-2000001234",
         )
 
         self.assertFalse(result["matched"])
@@ -167,7 +167,7 @@ class TestFinanceLookupEngine(unittest.TestCase):
         lease_reference = {
             "TYPE": "LEASE",
             "Area Index": "CON-33",
-            "Title Mod": "20893",
+            "Title Mod": "10006",
             "Registered Owner": "ELIZABETH S. MALLARI",
             "Total Contract Price": "900,000",
             "Total Payment Deductible to TCP": "300,000",
@@ -176,9 +176,9 @@ class TestFinanceLookupEngine(unittest.TestCase):
 
         result = engine.lookup(
             type_val="ROW",
-            index_no="TARROW-CON-00287",
+            index_no="TARROW-TST-00902",
             area_index_val="4745",
-            title_mod_val="TCT-20893",
+            title_mod_val="TCT-10006",
         )
 
         self.assertFalse(result["matched"])
