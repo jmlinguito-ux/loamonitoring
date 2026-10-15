@@ -192,12 +192,14 @@ class TestAuditedDelete(unittest.TestCase):
         self.api.dv_client.get_entity_info.return_value = {'entity_set': 'cr63f_loamonitorings'}
         self.order = []
         self.api.dv_client.save_log_record.side_effect = lambda log: self.order.append(('log', log)) or {'id': 'log-del'}
-        self.api.dv_client.delete.side_effect = lambda *a: self.order.append(('delete', a))
+        self.api.dv_client.delete.side_effect = lambda *a, **k: self.order.append(('delete', a, k))
+        # Delete reads the current row first (2026-10-15).
+        self.api.dv_client.get_record.side_effect = lambda table, rid: {**_account(), '__id': rid}
 
     def test_audit_row_is_written_before_the_delete(self):
         res = self.api.delete_loa_record_entry('m1')
         self.assertTrue(res['success'], res)
-        self.assertEqual([step for step, _ in self.order], ['log', 'delete'])
+        self.assertEqual([entry[0] for entry in self.order], ['log', 'delete'])
         log = self.order[0][1]
         self.assertEqual(log['action_type'], 'DELETE')
         self.assertEqual(log['cr63f_control1'], 'C-1')
@@ -224,6 +226,22 @@ class TestAuditedDelete(unittest.TestCase):
         res = self.api.revert_log_record(row['__id'])
         self.assertFalse(res['success'])
         self.assertIn('cannot be restored', res['error'])
+
+    def test_delete_is_conditional_on_the_current_version(self):
+        self.api.dv_client.get_record.side_effect = lambda table, rid: {**_account(), '__id': rid, '__etag': 'W/"7"'}
+        self.api.loa_records[0]['__etag'] = 'W/"7"'
+        res = self.api.delete_loa_record_entry('m1')
+        self.assertTrue(res['success'], res)
+        self.assertEqual(self.order[-1][2], {'expected_etag': 'W/"7"'})
+
+    def test_account_changed_since_load_is_not_deleted(self):
+        self.api.dv_client.get_record.side_effect = lambda table, rid: {**_account(), '__id': rid, '__etag': 'W/"8"'}
+        self.api.loa_records[0]['__etag'] = 'W/"7"'
+        res = self.api.delete_loa_record_entry('m1')
+        self.assertFalse(res['success'])
+        self.assertIn('changed in Dataverse', res['error'])
+        self.api.dv_client.save_log_record.assert_not_called()
+        self.api.dv_client.delete.assert_not_called()
 
     def test_delete_row_shows_in_entry_logs(self):
         log = app_module.build_log_entry('DELETE', 'WW-41', '10/12/2026 09:00 AM', 'AI-1', '', '', 'Deleted Record',

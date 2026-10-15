@@ -61,9 +61,9 @@ class TestConnectionSettingsPersist(unittest.TestCase):
         self.assertEqual(cfg['solution_name'], 'LOA MONITORING (LOAMONITORING)')
 
     def test_missing_values_filled_from_defaults(self):
-        self._write({'environment_url': 'https://orgfa075889.crm.dynamics.com/'})
+        self._write({'environment_url': 'https://yourorg.crm.dynamics.com/'})
         cfg = dv.load_config()
-        self.assertEqual(cfg['environment_url'], 'https://orgfa075889.crm.dynamics.com')
+        self.assertEqual(cfg['environment_url'], 'https://yourorg.crm.dynamics.com')
         self.assertEqual(cfg['tenant_id'], dv.DEFAULT_CONFIG['tenant_id'])
         self.assertEqual(cfg['loa_table'], 'cr63f_loamonitoring')
 

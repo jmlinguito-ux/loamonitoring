@@ -48,7 +48,7 @@ class TestLogsRepository(unittest.TestCase):
             'loa_table': 'cr63f_loamonitoring',
             'finance_table': 'cr63f_financereference',
             'logs_table': 'cr63f_loamonitoringlogs',
-            'environment_url': 'https://orgfa075889.crm.dynamics.com',
+            'environment_url': 'https://yourorg.crm.dynamics.com',
             'tenant_id': 'test-tenant',
             'client_id': 'test-client',
             'solution_name': 'LOA MONITORING',

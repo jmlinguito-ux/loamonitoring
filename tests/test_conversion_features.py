@@ -34,7 +34,7 @@ class TestConversionFeatures(unittest.TestCase):
         self.assertIn("2025002708", complex_variants)
 
         # 3. Clean title mod
-        self.assertEqual(clean_title_mod("TCT-CLOA-1001"), "7623")
+        self.assertEqual(clean_title_mod("TCT-CLOA-1001"), "1001")
         self.assertEqual(clean_title_mod("OCT-P-00123"), "123")
 
     def test_conversion_lookup_uses_area_index_only(self):
