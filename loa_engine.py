@@ -296,6 +296,7 @@ def get_work_week(date_value: Any) -> str:
     if not s or "1900" in s:
         return ""
     s_date = s.split("T")[0].split(" ")[0].strip()
+    s_date = s_date.replace('.', '/')
     for fmt in ("%m/%d/%Y", "%m/%d/%y", "%Y-%m-%d", "%Y/%m/%d", "%d/%m/%Y"):
         try:
             d = datetime.strptime(s_date, fmt)
@@ -354,7 +355,7 @@ def clean_title_variants(val: Any) -> List[str]:
         if len(part_digits) >= 3:
             variants.add(part_digits)
 
-    return [v for v in variants if v]
+    return sorted(v for v in variants if v)
 
 
 def clean_title_mod(val: Any) -> str:
@@ -362,11 +363,11 @@ def clean_title_mod(val: Any) -> str:
     variants = clean_title_variants(val)
     if not variants:
         return ""
-    # Return pure digits if available, else first non-empty token
-    for v in variants:
-        if v.isdigit():
-            return v
-    return variants[0]
+    # Deterministic: return longest pure digits if available, else first sorted token
+    digits = [v for v in variants if v.isdigit()]
+    if digits:
+        return max(digits, key=lambda s: (len(s), s))
+    return sorted(variants)[0]
 
 
 _DAR_STATUS_FIELDS = [
