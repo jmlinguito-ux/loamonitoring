@@ -2104,25 +2104,30 @@
 
   function formatAmount(val) {
     if (val === null || val === undefined || val === '') return '';
-    const clean = String(val).replace(/[^0-9.-]/g, '');
+    const raw = String(val).trim();
+    const clean = raw.replace(/[^0-9.-]/g, '');
     if (!clean || clean === '-' || clean === '.') return '';
-    const num = parseFloat(clean);
-    if (isNaN(num)) return String(val).replace(/[₱$]/g, '').trim();
+    let num = parseFloat(clean);
+    if (isNaN(num)) return raw.replace(/[₱$]/g, '').trim();
+    if (/^\(.*\)$/.test(raw) || (raw.startsWith('-') && !clean.startsWith('-'))) {
+      num = -Math.abs(num);
+    }
     return num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   }
 
   function formatAmountWithCommas(val) {
     if (val === null || val === undefined) return '';
-    let s = String(val).trim();
-    if (!s) return '';
-    s = s.replace(/[^0-9.-]/g, '');
+    let raw = String(val).trim();
+    if (!raw) return '';
+    const isNeg = /^\(.*\)$/.test(raw) || raw.startsWith('-');
+    let s = raw.replace(/[^0-9.-]/g, '');
     if (!s || s === '-' || s === '.') return s;
 
     const parts = s.split('.');
     const integerPart = parts[0];
     const decimalPart = parts.length > 1 ? parts.slice(1).join('') : null;
 
-    const sign = integerPart.startsWith('-') ? '-' : '';
+    const sign = (isNeg || integerPart.startsWith('-')) ? '-' : '';
     const cleanInt = integerPart.replace(/^-/, '');
     const formattedInt = cleanInt ? parseInt(cleanInt, 10).toLocaleString('en-US') : '';
 
@@ -8286,7 +8291,6 @@
       `;
     });
 
-    thead += `<th class="col-action" style="width: 80px; min-width: 80px; max-width: 80px; text-align: center; position: sticky !important; top: 0 !important; z-index: 20 !important; background: var(--subtle) !important;">Actions</th>`;
     thead += '</tr>';
     dom.logsTableHead.innerHTML = thead;
 
@@ -8296,7 +8300,7 @@
       if (dom.logsTableBody) {
         dom.logsTableBody.innerHTML = '';
         const visibleCols = getLogsVisibleColumns();
-        const colSpan = Math.max(1, visibleCols.length + 1); // + Actions
+        const colSpan = Math.max(1, visibleCols.length);
         const isInitialEmpty = !logsState.logs.length;
         const title = isInitialEmpty ? 'No Entry Logs found' : 'No matching logs found';
         const desc = isInitialEmpty
@@ -8432,7 +8436,7 @@
       const oCtrl = String(other.cr63f_control1 || other['Control Number'] || other.Control || other['Control No'] || other.control_no || '').trim().toUpperCase();
       const oLot = String(other.area_index || other['AREA-INDEX'] || other['Area-Index'] || other['Area Index'] || other.cr63f_areaindex || '').trim().toUpperCase();
       const oTitle = String(other.title_no || other['Title No'] || other['TITLE NO'] || other['Title No.'] || other.cr63f_titleno || '').trim().toUpperCase();
-      const oIdx = String(other.index_no || other['Index No'] || other['INDEX NO'] || other['Corridor Index'] || other.index_no || '').trim().toUpperCase();
+      const oIdx = String(other.index_no || other['Index No'] || other['INDEX NO'] || other['Corridor Index'] || other.cr63f_indexno || '').trim().toUpperCase();
       if (['FINANCE_UPDATE', 'CONVERSION_UPDATE'].includes(getLogActionType(other))) continue;
       const oId = getAuditMasterId(other);
 
@@ -8614,27 +8618,6 @@ function renderLogsChunk(startIdx, count) {
         }
         tr.appendChild(td);
       });
-      // Revert, only where it is allowed: the latest change of a Land Master
-      // field (not Balance / % Paid, not a delete, not a reference-table row).
-      // The Python side checks again before writing anything.
-      const actTd = document.createElement('td');
-      actTd.className = 'col-action';
-      actTd.dataset.colKey = '__action';
-      actTd.style.cssText = 'width: 80px; min-width: 80px; max-width: 80px; text-align: center;';
-      const logId = String(r.__id || r.id || r.cr63f_loamonitoringlogid || '');
-      if (logId && isLogRevertible(r)) {
-        const btn = document.createElement('button');
-        btn.type = 'button';
-        btn.className = 'btn xs ghost rc-revert-btn log-revert-btn';
-        btn.textContent = 'Revert';
-        btn.title = 'Put the previous value back. This writes a REVERT entry log.';
-        btn.addEventListener('click', (e) => {
-          e.stopPropagation();
-          window.revertLogRecord(logId);
-        });
-        actTd.appendChild(btn);
-      }
-      tr.appendChild(actTd);
       frag.appendChild(tr);
     }
     dom.logsTableBody.appendChild(frag);

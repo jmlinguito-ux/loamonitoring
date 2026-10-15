@@ -61,7 +61,7 @@ from loa_engine import (
 APP_TITLE = "LOA Monitoring Tool"
 # Single source for the app version: shown in Settings > About, and read by
 # build-release.ps1 / the GitHub release workflow as the release version.
-APP_VERSION = "1.0.14"  # stamped by the release workflow from its version input
+APP_VERSION = "1.0.18"  # stamped by the release workflow from its version input
 
 
 def _settings_path() -> str:
@@ -1386,18 +1386,35 @@ class Api:
                     done = completed[0]
                 self._report_progress(done, total, f'{progress_label}: {done} of {total}...')
 
+        derivation_snapshots = []
         if items_to_save:
             with ThreadPoolExecutor(max_workers=min(6, len(items_to_save))) as executor:
                 for outcome in executor.map(save_account, items_to_save):
                     if outcome['baseline']:
                         saved_audit_snapshots.append(outcome['baseline'])
+                        derivation_snapshots.append(outcome['baseline'])
                     if outcome['saved']:
                         saved_items.append(outcome['item'])
                         saved_audit_snapshots.append(outcome['item']['snapshot'])
+                        if not outcome['baseline'] and outcome['item'].get('previous_record'):
+                            anchor = build_log_entry(
+                                action_type='BASELINE',
+                                work_week=outcome['item']['snapshot'].get('work_week') or ww,
+                                now_str=now_str,
+                                area_index=outcome['item']['snapshot'].get('area_index') or '',
+                                index_no=outcome['item']['snapshot'].get('index_no') or '',
+                                title_no=outcome['item']['snapshot'].get('title_no') or '',
+                                field_name='Full Record',
+                                old_value='Previous Snapshot',
+                                new_value='Updated Snapshot',
+                                full_record=outcome['item']['previous_record']
+                            )
+                            derivation_snapshots.append(anchor)
+                        derivation_snapshots.append(outcome['item']['snapshot'])
                     if outcome['error']:
                         save_errors.append(outcome['error'])
         self.pending_session_logs.extend(saved_audit_snapshots)
-        self.log_records = derive_field_diffs_from_snapshots(saved_audit_snapshots) + self.log_records
+        self.log_records = derive_field_diffs_from_snapshots(derivation_snapshots) + self.log_records
         return saved_items, saved_audit_snapshots, save_errors
 
     def recalculate_payment_fields(self, persist_to_dataverse: bool = False) -> dict:
@@ -3184,9 +3201,17 @@ class Api:
                         'deductible' in f_low
                     )
                     if should_recalculate:
-                        tcp_f = _decimal_amount(found_master.get('cr63f_totalcontractprice') or found_master.get('Total Contract Price') or 0)
-                        ded_f = _decimal_amount(found_master.get('cr63f_totalpaymentdeductibletotcp') or found_master.get('Payment Deductible') or found_master.get('Total Payment Deductible to TCP') or 0)
-                        if tcp_f is not None and ded_f is not None:
+                        tcp_f = _decimal_amount(found_master.get('cr63f_totalcontractprice') or found_master.get('Total Contract Price'))
+                        ded_f = _decimal_amount(found_master.get('cr63f_totalpaymentdeductibletotcp') or found_master.get('Payment Deductible') or found_master.get('Total Payment Deductible to TCP')) or Decimal(0)
+                        if tcp_f is None:
+                            found_master['cr63f_balance'] = None
+                            found_master['Balance'] = ''
+                            found_master['BALANCE'] = ''
+                            found_master['cr63f_paid'] = None
+                            found_master['% Paid'] = ''
+                            found_master['% PAID'] = ''
+                            found_master['Paid'] = ''
+                        else:
                             calc_bal = max(Decimal(0), tcp_f - ded_f)
                             calc_pct = paid_percent_for_storage(tcp_f, ded_f) or Decimal(0)
                             found_master['cr63f_balance'] = calc_bal
@@ -3203,8 +3228,7 @@ class Api:
                     patch_payload = {attr_name: sanitized_val if sanitized_val != '' else None}
                     if should_recalculate:
                         for dependant in ('cr63f_balance', 'cr63f_paid'):
-                            if dependant in found_master:
-                                patch_payload[dependant] = found_master[dependant]
+                            patch_payload[dependant] = found_master.get(dependant)
                     try:
                         self._validate_control_change(original_master, patch_payload, found_master['__id'])
                         revert_res = self.dv_client.save_loa_record(patch_payload, record_id=found_master['__id'],
@@ -3518,8 +3542,20 @@ class Api:
                 if baseline:
                     self.pending_session_logs.append(dict(baseline))
                 self.pending_session_logs.append(dict(log_entry))
+                derivation_baseline = baseline or build_log_entry(
+                    action_type='BASELINE',
+                    work_week=ww,
+                    now_str=now_str,
+                    area_index=area_idx,
+                    index_no=index_no,
+                    title_no=title_no,
+                    field_name='Full Record',
+                    old_value='Previous Snapshot',
+                    new_value='Updated Snapshot',
+                    full_record=found_rec
+                )
                 self.log_records = derive_field_diffs_from_snapshots(
-                    ([baseline] if baseline else []) + [log_entry]
+                    [derivation_baseline, log_entry]
                 ) + self.log_records
                 for idx, r in enumerate(self.loa_records):
                     if r.get('__id') == record_id:
@@ -3840,7 +3876,33 @@ class Api:
             with lock:
                 newly_saved_rows = baseline_snapshots + saved_logs
                 self.pending_session_logs.extend(dict(log) for log in newly_saved_rows)
-                self.log_records = derive_field_diffs_from_snapshots(newly_saved_rows) + self.log_records
+                derivation_rows = list(baseline_snapshots)
+                account_keys_with_baseline = {
+                    key for b in baseline_snapshots for key in _audit_identity_keys(b, master=True)
+                }
+                for log_row in saved_logs:
+                    log_keys = _audit_identity_keys(log_row, master=True)
+                    if not any(k in account_keys_with_baseline for k in log_keys):
+                        ctx = audit_contexts.get(id(log_row))
+                        if ctx:
+                            rec_id, orig_rec, _, _ = ctx
+                            if orig_rec:
+                                anchor = build_log_entry(
+                                    action_type='BASELINE',
+                                    work_week=log_row.get('work_week') or ww,
+                                    now_str=now_str,
+                                    area_index=log_row.get('area_index') or '',
+                                    index_no=log_row.get('index_no') or '',
+                                    title_no=log_row.get('title_no') or '',
+                                    field_name='Full Record',
+                                    old_value='Previous Snapshot',
+                                    new_value='Updated Snapshot',
+                                    full_record=orig_rec
+                                )
+                                derivation_rows.append(anchor)
+                                account_keys_with_baseline.update(log_keys)
+                derivation_rows.extend(saved_logs)
+                self.log_records = derive_field_diffs_from_snapshots(derivation_rows) + self.log_records
 
         if errors:
             return {'success': False, 'error': '; '.join(errors[:3])}
@@ -4723,7 +4785,7 @@ class Api:
             ws.title = "Entry Logs"
             ws.views.sheetView[0].showGridLines = True
 
-            cols = columns or ['Log Time', 'Work Week', 'Action Type', 'Control Number', 'AREA-INDEX', 'Field Changed', 'Previous Value', 'New Value', 'Title No', 'Details']
+            cols = columns or ['Log Time', 'Work Week', 'Action Type', 'Control Number', 'AREA-INDEX', 'Corridor Index', 'Field Changed', 'Previous Value', 'New Value', 'Title No', 'Details']
             hdr_font = Font(name='Segoe UI', size=10, bold=True, color='FFFFFF')
             hdr_fill = PatternFill(start_color='1E293B', end_color='1E293B', fill_type='solid')
             thin_border = Border(
@@ -4745,6 +4807,8 @@ class Api:
                 'Action Type': ['action_type', 'Action Type', 'cr63f_actiontype'],
                 'Control Number': ['cr63f_control1', 'cr63f_control', 'Control', 'Control Number', 'Control No'],
                 'AREA-INDEX': ['area_index', 'cr63f_areaindex', 'Area-Index', 'AREA-INDEX'],
+                'Index No': ['index_no', 'cr63f_indexno', 'Index No', 'INDEX NO', 'Corridor Index'],
+                'Corridor Index': ['index_no', 'cr63f_indexno', 'Index No', 'INDEX NO', 'Corridor Index'],
                 'Title No': ['title_no', 'cr63f_titleno', 'Title No'],
                 'Field Changed': ['field_name', 'Field Changed', 'cr63f_fieldchanged'],
                 'Previous Value': ['old_value', 'Previous Value', 'cr63f_previousvalue'],
@@ -4793,6 +4857,8 @@ class Api:
                 record = self.dv_client.get_record(table_name, record_id)
         except Exception as exc:
             return {'success': False, 'error': f'Cannot read the account to delete: {exc}'}
+        if not record or not isinstance(record, dict):
+            return {'success': False, 'error': f'Account {record_id} was not found.'}
         record['__id'] = record.get('__id') or record_id
         control = str(_get_field_val(record, ['cr63f_control1', 'Control', 'Control Number']) or '').strip()
         area_idx = str(_get_field_val(record, ['cr63f_areaindex', 'Area-Index', 'AREA-INDEX']) or '').strip()
@@ -4956,8 +5022,17 @@ class Api:
                             continue
                         low = k.lower().strip()
                         # If logical column like cr63f_... and display label is also in record, omit raw cr63f_
-                        if (k.startswith('cr63f_') or k.startswith('new_')) and any(k != other and not other.startswith(('cr63f_', 'new_')) for other in r.keys()):
-                            continue
+                        if k.startswith(('cr63f_', 'new_')):
+                            k_core = re.sub(r'^(cr63f_|new_)', '', k).lower().replace('_', '')
+                            has_display_alias = any(
+                                other != k and (
+                                    other == CANONICAL_FIELD_MAP.get(k) or
+                                    other.lower().replace(' ', '').replace('-', '').replace('_', '') == k_core
+                                )
+                                for other in r.keys()
+                            )
+                            if has_display_alias:
+                                continue
                         if k not in collected:
                             collected.append(k)
                 export_cols = collected

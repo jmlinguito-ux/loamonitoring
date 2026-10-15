@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import concurrent.futures as cf
 import json
+import math
 import os
 import re
 from urllib.parse import quote
@@ -203,17 +204,24 @@ def _clean_dataverse_datetime(val: Any, behavior: str = 'UserLocal') -> Optional
             continue
 
     if not dt:
-        parts = re.split(r'[-/]', s.split('T')[0].split(' ')[0])
+        parts = re.split(r'[-/.]', s.split('T')[0].split(' ')[0])
         if len(parts) == 3:
             try:
                 p0, p1, p2 = int(parts[0]), int(parts[1]), int(parts[2])
                 if p0 > 100:
                     year, month, day = p0, p1, p2
                 elif p2 > 100:
-                    year, month, day = p2, p0, p1
+                    year = p2
+                    if p0 > 12 and 1 <= p1 <= 12:
+                        month, day = p1, p0
+                    else:
+                        month, day = p0, p1
                 elif p2 < 100:
                     year = 2000 + p2 if p2 < 50 else 1900 + p2
-                    month, day = p0, p1
+                    if p0 > 12 and 1 <= p1 <= 12:
+                        month, day = p1, p0
+                    else:
+                        month, day = p0, p1
                 else:
                     return None
                 dt = datetime(year, month, day)
@@ -246,6 +254,8 @@ def _parse_number_strict(val: Any) -> Optional[float]:
     if isinstance(val, bool):
         return None
     if isinstance(val, (int, float)):
+        if math.isnan(val) or math.isinf(val):
+            return None
         return float(val)
     s = str(val).strip()
     negative = False
@@ -511,6 +521,10 @@ class DataverseClient:
                 new_etag = candidate if isinstance(candidate, str) else ''
             except Exception:
                 new_etag = ''
+        if not new_etag and resp is not None:
+            header_etag = resp.headers.get('ETag') or resp.headers.get('etag') or ''
+            if header_etag and isinstance(header_etag, str):
+                new_etag = header_etag
         return resp.status_code, new_etag
 
     def delete(self, entity_set: str, record_id: str) -> int:
@@ -1009,15 +1023,24 @@ class DataverseClient:
                 if not target_attr:
                     k_clean = _clean_key(k)
                     if k_clean:
+                        # Pass 1: exact clean match across all attributes
                         for log_name, meta in attrs.items():
                             log_clean = _clean_key(log_name)
                             disp_clean = _clean_key(meta['display'])
-                            if (log_clean == k_clean or disp_clean == k_clean or
-                                log_clean.rstrip('1234567890') == k_clean.rstrip('1234567890') or
-                                disp_clean.rstrip('1234567890') == k_clean.rstrip('1234567890')):
+                            if log_clean == k_clean or disp_clean == k_clean:
                                 if meta['can_create'] or meta['can_update']:
                                     target_attr = meta
                                     break
+                        # Pass 2: fallback to number-stripped match only if no exact clean match
+                        if not target_attr:
+                            for log_name, meta in attrs.items():
+                                log_clean = _clean_key(log_name)
+                                disp_clean = _clean_key(meta['display'])
+                                if (log_clean.rstrip('1234567890') == k_clean.rstrip('1234567890') or
+                                    disp_clean.rstrip('1234567890') == k_clean.rstrip('1234567890')):
+                                    if meta['can_create'] or meta['can_update']:
+                                        target_attr = meta
+                                        break
 
             if target_attr:
                 log_name = target_attr['logical']
@@ -1143,6 +1166,13 @@ class DataverseClient:
     def delete_conversion_record(self, record_id: str) -> Dict[str, Any]:
         """Delete a record from cr63f_landconversionreference."""
         table_name = self.config.get('conversion_table', 'cr63f_landconversionreference')
+        info = self.get_entity_info(table_name)
+        self.delete(info['entity_set'], record_id)
+        return {'success': True, 'action': 'delete', 'id': record_id}
+
+    def delete_finance_record(self, record_id: str) -> Dict[str, Any]:
+        """Delete a record from cr63f_financereference."""
+        table_name = self.config.get('finance_table', 'cr63f_financereference')
         info = self.get_entity_info(table_name)
         self.delete(info['entity_set'], record_id)
         return {'success': True, 'action': 'delete', 'id': record_id}

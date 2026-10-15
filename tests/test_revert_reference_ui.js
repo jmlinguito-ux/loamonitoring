@@ -39,9 +39,9 @@ const financeRendering = section('  function renderFinanceTable(', '  function u
 assert.equal(financeRendering.includes('col-action'), false);
 assert.equal(financeRendering.includes('deleteFinanceRecord'), false);
 const logsRendering = section('function renderLogsChunk(', '  function attachLogsHeader');
-// Decision 2026-10-12: Entry Logs rows offer Revert, but only where isLogRevertible allows it.
-assert.equal(logsRendering.includes('revertLogRecord'), true);
-assert.equal(logsRendering.includes('isLogRevertible(r)'), true);
+// Decision 2026-10-15: Entry Logs table is read-only; row-level action column and revert were removed.
+assert.equal(logsRendering.includes('col-action'), false);
+assert.equal(logsRendering.includes('revertLogRecord'), false);
 // Neither reference grid has a row delete button (decision 2026-10-12).
 const conversionRendering = section('  function renderConversionChunk(', '  function updateStagedEditsUIConversion(');
 assert.equal(conversionRendering.includes('deleteConversionRecord'), false);
