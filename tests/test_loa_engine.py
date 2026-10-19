@@ -1,7 +1,7 @@
 """Unit tests for LOA engine lookup and calculations."""
 
 import unittest
-from loa_engine import FinanceLookupEngine, norm_key, parse_float, format_currency, format_percent
+from loa_engine import FinanceLookupEngine
 
 
 class TestFinanceLookupEngine(unittest.TestCase):

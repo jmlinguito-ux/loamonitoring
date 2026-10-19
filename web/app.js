@@ -4182,9 +4182,20 @@
     const origVal = String(rec[colDef.key] || (colDef.alt ? rec[colDef.alt] : '') || '').trim();
     let trimmed = String(newVal || '').trim();
     if (colDef.isPercent) trimmed = formatPercent(trimmed);
+    // Plain number columns (hectares): refuse text here instead of failing at save,
+    // and treat 1.5 and 1.50 as the same value.
+    const plainNumber = colDef.isNum && !colDef.isPrice && !colDef.isPercent && !colDef.isBalance;
+    const asNumber = v => Number(String(v).replace(/,/g, ''));
+    if (plainNumber && trimmed !== '' && !Number.isFinite(asNumber(trimmed))) {
+      showToast(`${colDef.label || colKey} must be a number (for example 1.25).`, 'err');
+      if (inputEl) inputEl.value = origVal;
+      return;
+    }
     const sameValue = colDef.isDate
       ? (normalizeDateInput(origVal) ?? origVal) === (normalizeDateInput(trimmed) ?? trimmed)
-      : origVal === trimmed;
+      : (plainNumber && trimmed !== '' && origVal !== '')
+        ? asNumber(origVal) === asNumber(trimmed)
+        : origVal === trimmed;
 
     // Type and Mode cannot be cleared on an existing account (the server refuses it too).
     if (REQUIRED_EXISTING_KEYS.includes(colDef.key) && !trimmed && origVal) {
@@ -5446,6 +5457,14 @@
   }
 
   async function handleSaveEntry() {
+    // A number box holding text reads as blank, which would clear the stored area.
+    for (const [label, el] of [['Lot Area (Ha)', dom.fLotAreaHa], ['Poss Rights Area (Ha)', dom.fPossRightsArea], ['Cat Area (Ha)', dom.fCatArea]]) {
+      if (el && el.validity && el.validity.badInput) {
+        showToast(`${label} must be a number (for example 1.25).`, 'err');
+        el.focus();
+        return;
+      }
+    }
     const recordId = dom.fRecordId.value || null;
     const recordData = collectDrawerData();
 
@@ -8450,7 +8469,7 @@
 
   function revertValuesEqual(left, right, fieldName) {
     const fLow = String(fieldName || '').toLowerCase();
-    const isNumeric = ['price', 'deductible', 'balance', 'tcp', 'amount', 'paid', '%'].some(k => fLow.includes(k));
+    const isNumeric = ['price', 'deductible', 'balance', 'tcp', 'amount', 'paid', '%', '(ha)'].some(k => fLow.includes(k));
     if (isNumeric) {
       const leftNum = parseAmount(left);
       const rightNum = parseAmount(right);

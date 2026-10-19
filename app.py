@@ -56,7 +56,7 @@ from loa_engine import (
 APP_TITLE = "LOA Monitoring Tool"
 # Single source for the app version: shown in Settings > About, and read by
 # build-release.ps1 / the GitHub release workflow as the release version.
-APP_VERSION = "1.0.18"  # stamped by the release workflow from its version input
+APP_VERSION = "1.0.20"  # stamped by the release workflow from its version input
 
 
 def _settings_path() -> str:
@@ -776,7 +776,7 @@ LOG_COMPARE_SPECS = [
     ('Province', ['cr63f_province', 'Province'], 'text'),
     ('Municipality', ['cr63f_municipality', 'Municipality'], 'text'),
     ('DB Adjusted Barangay', ['cr63f_dbadjustedbarangay', 'DB Adjusted Barangay', 'Adjusted Barangay'], 'text'),
-    ('Lot Area (Ha)', ['cr63f_lotareaha', 'Lot Area (Ha)', 'Lot Area (ha)', 'Lot Area'], 'text'),
+    ('Lot Area (Ha)', ['cr63f_lotareaha', 'Lot Area (Ha)', 'Lot Area (ha)', 'Lot Area'], 'number'),
     ('Poss Rights Status', ['cr63f_possrightsstatus', 'Poss Rights Status'], 'text'),
     ('Poss Rights Area (Ha)', ['cr63f_possrightsarea', 'Poss Rights Area (Ha)'], 'number'),
     ('Possrights Cat', ['cr63f_possrightscat', 'Possrights Cat'], 'text'),
@@ -861,6 +861,31 @@ def _norm_text_str(val: Any) -> str:
     return str(val).strip()
 
 
+def _norm_number_str(val: Any) -> str:
+    """Plain number text for comparing areas: '1', '1.0' and '1.00' all give '1'."""
+    text = _norm_text_str(val).replace(',', '')
+    if not text or text in ('-', 'N/A'):
+        return ''
+    try:
+        number = Decimal(text)
+    except InvalidOperation:
+        return text
+    if not number.is_finite():
+        return text
+    rendered = format(number.normalize(), 'f')
+    return '0' if rendered in ('-0', '') else rendered
+
+
+def _area_display(norm: str) -> str:
+    """Hectare value for Entry Logs: always 2 decimals (1 -> 1.00); blank -> '-'."""
+    if not norm:
+        return '-'
+    try:
+        return f"{Decimal(norm):.2f}"
+    except InvalidOperation:
+        return norm
+
+
 def _get_field_val(record: dict, keys: list) -> Any:
     for k in keys:
         if k in record and record[k] is not None:
@@ -900,13 +925,7 @@ def _audit_values_equal(field_name: str, left: Any, right: Any) -> bool:
         return _norm_date_str(left) == _norm_date_str(right)
     if spec and spec[2] == 'number':
         # 1, 1.0 and 1.00 are the same area; blank only equals blank.
-        left_text, right_text = _norm_text_str(left), _norm_text_str(right)
-        if not left_text or not right_text:
-            return left_text == right_text
-        try:
-            return Decimal(left_text.replace(',', '')) == Decimal(right_text.replace(',', ''))
-        except InvalidOperation:
-            return left_text == right_text
+        return _norm_number_str(left) == _norm_number_str(right)
     return _norm_text_str(left) == _norm_text_str(right)
 
 
@@ -1142,6 +1161,11 @@ def derive_field_diffs_from_snapshots(
                     c_norm = _norm_date_str(c_val)
                     old_disp = p_norm if p_norm else "-"
                     new_disp = c_norm if c_norm else "-"
+                elif f_type == 'number':
+                    p_norm = _norm_number_str(p_val)
+                    c_norm = _norm_number_str(c_val)
+                    old_disp = _area_display(p_norm)
+                    new_disp = _area_display(c_norm)
                 else:
                     p_norm = _norm_text_str(p_val)
                     c_norm = _norm_text_str(c_val)
@@ -1243,7 +1267,6 @@ class Api:
         self.finance_source_name: str = "None"
         self.conversion_rows: List[Dict[str, Any]] = []
         self.conversion_source_name: str = "None"
-        self.batch_rows: List[Dict[str, Any]] = []
         self.active_flow: Optional[dict] = None
         self._window: Optional[webview.Window] = None
 
@@ -2150,6 +2173,7 @@ class Api:
         title = norm_key(get(row, ['TITLE NUMBER', 'Title Number', 'TITLE NO', 'cr63f_titlenumber']))
         return ('TITLE', title) if title else ()
 
+    @_guard_save
     def _sync_reference_rows(self, kind: str) -> dict:
         """Create or update reference rows in Dataverse from the loaded rows.
 
@@ -2272,6 +2296,7 @@ class Api:
                 f" Skipped: {'; '.join(skipped[:3])}{' …' if len(skipped) > 3 else ''}" if skipped else ''),
         }
 
+    @_guard_save
     def _delete_reference_row(self, kind: str, record_id_or_idx: Any) -> dict:
         """Delete one Finance or Conversion row.
 
@@ -3360,6 +3385,7 @@ class Api:
 
         return {'success': False, 'error': 'This audit row has no eligible Land Master field to revert.'}
 
+    @_guard_save
     def revert_log_record(self, record_id: str) -> dict:
         """Public API for the Entry Logs Revert action."""
         return self.delete_log_record(record_id, revert_master=True)
@@ -4941,60 +4967,6 @@ class Api:
         return {'success': True, 'message': f"Account {control or area_idx} deleted from Dataverse and logged in Entry Logs."}
 
     # -- Batch Processing & Export ---------------------------------------------
-    def upload_batch_file_dialog(self) -> dict:
-        if not self._window:
-            return {'success': False, 'error': 'Window not attached.'}
-        file_types = ('Excel and CSV Files (*.xlsx;*.xlsm;*.csv)', 'All files (*.*)')
-        result = self._window.create_file_dialog(
-            webview.OPEN_DIALOG,
-            allow_multiple=False,
-            file_types=file_types
-        )
-        file_path = _dialog_path(result)
-        if not file_path:
-            return {'success': False, 'cancelled': True}
-        try:
-            headers, raw_rows = read_tabular_file(file_path)
-            # Run lookup calculation across all rows
-            processed_rows: List[Dict[str, Any]] = []
-            for r in raw_rows:
-                type_val = r.get("TYPE", r.get("Type", ""))
-                index_no = r.get("INDEX NO", r.get("Index No", r.get("Corridor Index", "")))
-                area_index = r.get("AREA-INDEX", r.get("Area Index", r.get("AREA INDEX", "")))
-                title_mod = r.get("TITLE MOD", r.get("Title Mod", ""))
-
-                mode_val = r.get("MODE", r.get("Mode", ""))
-                lookup_res = self.finance_engine.lookup(type_val, index_no, area_index, title_mod, mode_val)
-
-                row_copy = dict(r)
-                if lookup_res['matched']:
-                    row_copy['Total Contract Price'] = lookup_res['total_contract_price_formatted']
-                    row_copy['Total Payment Deductible to TCP'] = lookup_res['total_payment_deductible_formatted']
-                    row_copy['Balance'] = lookup_res['balance_formatted']
-                    row_copy['% Paid'] = lookup_res['percent_paid_formatted']
-                    row_copy['__match_status'] = f"Matched via {lookup_res['match_type']}"
-                else:
-                    row_copy['__match_status'] = "No Finance Match"
-
-                processed_rows.append(row_copy)
-
-            self.batch_rows = processed_rows
-
-            # Ensure all calculation columns are in headers
-            for col in ['Total Contract Price', 'Total Payment Deductible to TCP', 'Balance', '% Paid']:
-                if col not in headers:
-                    headers.append(col)
-
-            return {
-                'success': True,
-                'file_name': os.path.basename(file_path),
-                'row_count': len(processed_rows),
-                'headers': headers,
-                'rows': processed_rows[:200]
-            }
-        except Exception as e:
-            return {'success': False, 'error': str(e)}
-
     def export_records_excel(
         self,
         records: List[Dict[str, Any]],

@@ -5,7 +5,6 @@ import unittest
 import tempfile
 from unittest.mock import patch
 from app import Api
-from loa_engine import FinanceLookupEngine
 import openpyxl
 
 

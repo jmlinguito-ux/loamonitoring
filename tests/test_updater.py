@@ -4,7 +4,7 @@ import sys
 from types import SimpleNamespace
 from unittest import mock
 
-from updater import UpdateService, UPDATE_FEED_URL
+from updater import UpdateService
 
 
 class _Asset:

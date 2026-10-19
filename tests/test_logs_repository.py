@@ -6,7 +6,7 @@ from decimal import Decimal
 import json
 import unittest
 from unittest.mock import MagicMock, patch
-from app import Api, _is_different_pct
+from app import Api
 import app as app_module
 import dataverse as dv
 
@@ -731,10 +731,6 @@ class TestLogsRepository(unittest.TestCase):
 
         source_rows = []
         for account in ('CTRL-A', 'CTRL-B'):
-            changes = [
-                build_log_entry('REFERENCE_UPDATE', 'WW-39', '09/24/2026 10:00 AM', account, '', '',
-                                'Total Payment Deductible to TCP', '₱100.00', '₱200.00'),
-            ]
             baseline = build_log_entry(
                 'BASELINE', 'WW-39', '09/24/2026 09:00 AM', account, '', '',
                 'Full Record', '-', 'Baseline Snapshot',

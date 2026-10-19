@@ -84,6 +84,58 @@ class BackendTests(unittest.TestCase):
         api.dv_client.save_log_record.assert_not_called()
 
 
+class AreaDiffTests(unittest.TestCase):
+    def test_number_text_normalises(self):
+        from app import _norm_number_str
+        self.assertEqual(_norm_number_str('1.00'), '1')
+        self.assertEqual(_norm_number_str('1,234.50'), '1234.5')
+        self.assertEqual(_norm_number_str(10), '10')
+        self.assertEqual(_norm_number_str(''), '')
+        self.assertEqual(_norm_number_str('-'), '')
+
+    def test_reformatted_area_is_not_shown_as_a_change(self):
+        from app import derive_field_diffs_from_snapshots
+        base = {'__id': 'b', 'cr63f_actiontype': 'BASELINE', 'cr63f_fieldchanged': 'Full Record',
+                'cr63f_details': '[MASTER:r1] [SOURCE:BASELINE]', '__createdon_raw': '2026-10-14T08:05:00Z',
+                'cr63f_control1': 'C1', 'cr63f_catarea': '1.00', 'cr63f_lotareaha': '2.50', 'cr63f_possrightsarea': '3'}
+        snap = dict(base, __id='s', cr63f_actiontype='MANUAL_EDIT', cr63f_details='[MASTER:r1] [SOURCE:MANUAL_EDIT]',
+                    __createdon_raw='2026-10-14T08:06:00Z', cr63f_catarea='1', cr63f_lotareaha='2.5',
+                    cr63f_possrightsarea='3.25')
+        rows = derive_field_diffs_from_snapshots([base, snap])
+        self.assertEqual([r['field_name'] for r in rows], ['Poss Rights Area (Ha)'])
+        self.assertEqual((rows[0]['old_value'], rows[0]['new_value']), ('3.00', '3.25'))
+
+
+class RevertTests(unittest.TestCase):
+    def _api(self, current):
+        api = Api()
+        api.dv_client = MagicMock()
+        api.dv_client.config = {'loa_table': 'cr63f_loamonitoring', 'logs_table': 'cr63f_loamonitoringlogs'}
+        api.dv_client.get_record.return_value = dict(current)
+        api.dv_client.save_loa_record.return_value = {'etag': 'e2'}
+        api.dv_client.save_log_record.return_value = {'id': 'rev_log'}
+        api.loa_records = [dict(current)]
+        return api
+
+    def test_revert_area_when_stored_value_is_formatted(self):
+        current = {'__id': 'r1', '__etag': 'e1', 'cr63f_control1': 'C-1', 'cr63f_catarea': '2.50'}
+        api = self._api(current)
+        api.log_records = [{'__id': 'l1', 'cr63f_control1': 'C-1', 'field_name': 'Cat Area (Ha)',
+                            'old_value': '1.25', 'new_value': '2.5'}]
+        res = api.revert_log_record('l1')
+        self.assertTrue(res.get('success'), res)
+        self.assertEqual(api.dv_client.save_loa_record.call_args[0][0], {'cr63f_catarea': '1.25'})
+
+    def test_revert_text_field_to_blank(self):
+        current = {'__id': 'r1', '__etag': 'e1', 'cr63f_control1': 'C-1', 'cr63f_possrightsstatus': 'GRANTED'}
+        api = self._api(current)
+        api.log_records = [{'__id': 'l1', 'cr63f_control1': 'C-1', 'field_name': 'Poss Rights Status',
+                            'old_value': '-', 'new_value': 'GRANTED'}]
+        res = api.revert_log_record('l1')
+        self.assertTrue(res.get('success'), res)
+        self.assertEqual(api.dv_client.save_loa_record.call_args[0][0], {'cr63f_possrightsstatus': None})
+
+
 class FrontendTests(unittest.TestCase):
     def test_columns_form_and_aliases_exist(self):
         js, html = read('web', 'app.js'), read('web', 'index.html')
