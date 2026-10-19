@@ -6,6 +6,7 @@ autofill engine, explicit record logging/saving, reference data sync, and batch 
 
 from __future__ import annotations
 
+import functools
 import json
 import os
 import re
@@ -1159,6 +1160,41 @@ def derive_field_diffs_from_snapshots(
     return combined_logs
 
 
+_SAVE_GUARD = threading.Lock()
+
+
+def _save_begin(api) -> None:
+    with _SAVE_GUARD:
+        api._active_saves = getattr(api, '_active_saves', 0) + 1
+
+
+def _save_end(api) -> None:
+    close_now = False
+    with _SAVE_GUARD:
+        api._active_saves = max(0, getattr(api, '_active_saves', 1) - 1)
+        if api._active_saves == 0 and getattr(api, '_close_after_save', False):
+            api._close_after_save = False
+            close_now = True
+    window = getattr(api, '_window', None)
+    if close_now and window is not None:
+        try:
+            window.destroy()
+        except Exception:
+            pass
+
+
+def _guard_save(method):
+    """Keep the app open until a Dataverse write (and its audit row) finishes."""
+    @functools.wraps(method)
+    def wrapper(self, *args, **kwargs):
+        _save_begin(self)
+        try:
+            return method(self, *args, **kwargs)
+        finally:
+            _save_end(self)
+    return wrapper
+
+
 class Api:
     def __init__(self):
         self.dv_client: Optional[dv.DataverseClient] = None
@@ -1321,6 +1357,7 @@ class Api:
             return self.dv_client.save_loa_record(fields, record_id=record_id, expected_etag=etag)
         return self.dv_client.save_loa_record(fields, record_id=record_id)
 
+    @_guard_save
     def _persist_account_updates(self, items_to_save: List[Dict[str, Any]], now_str: str,
                                  progress_label: str = 'Saving accounts and audit rows'):
         """Save changed Land Master accounts one by one, each with its audit snapshot.
@@ -2547,6 +2584,7 @@ class Api:
         """Upload the loaded conversion rows to Dataverse without creating duplicates."""
         return self._sync_reference_rows('conversion')
 
+    @_guard_save
     def populate_loa_records_from_references(
         self,
         records: Optional[List[Dict[str, Any]]] = None,
@@ -3040,6 +3078,7 @@ class Api:
                 'error': f"Could not refresh Dataverse logs: {e}"
             }
 
+    @_guard_save
     def delete_log_record(self, record_id: str, revert_master: bool = False) -> dict:
         """Revert an audited Land Master field and preserve its history."""
         if not revert_master:
@@ -3448,6 +3487,7 @@ class Api:
                 }
         return None
 
+    @_guard_save
     def save_loa_record_entry(self, record_data: dict, record_id: Optional[str] = None,
                               allow_shared_area_index: bool = False) -> dict:
         """Save new log entry to cr63f_loamonitoringlogs and upsert master record in cr63f_loamonitoring."""
@@ -3652,6 +3692,7 @@ class Api:
         except Exception as e:
             return {'success': False, 'error': str(e)}
 
+    @_guard_save
     def save_staged_records(self, staged_list: List[Dict[str, Any]]) -> dict:
         """Save staged row updates into Dataverse master table (cr63f_loamonitoring) and write change logs in parallel."""
         if not self.dv_client:
@@ -3668,6 +3709,7 @@ class Api:
         errors = []
         now_str = datetime.now().strftime('%m/%d/%Y %I:%M %p')
         log_entries_to_save = []
+        saved_logs = []
         baseline_snapshots = []
         audit_contexts = {}
         reserved_controls = {}
@@ -3757,26 +3799,46 @@ class Api:
 
                 res = self._save_master(fields, rec_id, orig_rec.get('__etag'))
                 new_etag = (res or {}).get('etag') or ''
+
+                # The audit row is written right after THIS row's master save,
+                # not after every row has saved. Closing the app mid-save can
+                # then never leave a saved Land Master row without its audit row.
+                act_type = item.get('action_type') or 'MANUAL_EDIT'
+                log_entry = build_log_entry(
+                    action_type=act_type,
+                    work_week=ww,
+                    now_str=now_str,
+                    area_index=area_idx,
+                    index_no=index_no,
+                    title_no=title_no,
+                    field_name='Full Record',
+                    old_value='Previous Snapshot',
+                    new_value='Updated Snapshot',
+                    full_record=merged_rec
+                )
+                try:
+                    saved_log = self.dv_client.save_log_record(log_entry)
+                    if saved_log and saved_log.get('id'):
+                        log_entry['__id'] = saved_log['id']
+                except Exception as audit_exc:
+                    rollback_fields = {}
+                    for key in fields:
+                        canonical = CANONICAL_FIELD_MAP.get(key, key)
+                        spec = next((entry for entry in LOG_COMPARE_SPECS if entry[0] == canonical), None)
+                        rollback_fields[key] = _none_if_blank(_get_field_val(orig_rec, spec[1] if spec else [key, canonical]))
+                    try:
+                        self._save_master(rollback_fields, rec_id, new_etag)
+                        with lock:
+                            errors.append(f"Audit save failed for {rec_id} ({audit_exc}); Land Master update was rolled back.")
+                    except Exception as rollback_error:
+                        with lock:
+                            errors.append(
+                                f"Audit save failed for {rec_id} ({audit_exc}) and Land Master rollback failed ({rollback_error}). Check Dataverse."
+                            )
+                    return
+
                 with lock:
                     saved_count += 1
-
-                item_logs = []
-                if changed_fields:
-                    act_type = item.get('action_type') or 'MANUAL_EDIT'
-                    item_logs.append(build_log_entry(
-                        action_type=act_type,
-                        work_week=ww,
-                        now_str=now_str,
-                        area_index=area_idx,
-                        index_no=index_no,
-                        title_no=title_no,
-                        field_name='Full Record',
-                        old_value='Previous Snapshot',
-                        new_value='Updated Snapshot',
-                        full_record=merged_rec
-                    ))
-
-                with lock:
                     for r in self.loa_records:
                         if r.get('__id') == rec_id:
                             r.update(fields)
@@ -3788,10 +3850,9 @@ class Api:
                             r['work_week'] = endorsed_ww
                             r['Work Week'] = endorsed_ww
                             break
-                    if item_logs:
-                        log_entries_to_save.extend(item_logs)
-                        for log_entry in item_logs:
-                            audit_contexts[id(log_entry)] = (rec_id, orig_rec, fields, new_etag)
+                    saved_logs.append(log_entry)
+                    log_entries_to_save.append(log_entry)
+                    audit_contexts[id(log_entry)] = (rec_id, orig_rec, fields, new_etag)
 
             except Exception as e:
                 with lock:
@@ -3809,69 +3870,13 @@ class Api:
                 if self._window:
                     try:
                         self._window.evaluate_js(
-                            f"window.onDataverseSaveProgress && window.onDataverseSaveProgress({cur_prog}, {total_items}, 'Saving master records: {cur_prog} of {total_items}...')"
+                            f"window.onDataverseSaveProgress && window.onDataverseSaveProgress({cur_prog}, {total_items}, 'Saving records and audit logs: {cur_prog} of {total_items}...')"
                         )
                     except Exception:
                         pass
 
-        # Phase 2: Parallel save of audit log records
-        if log_entries_to_save:
-            total_logs = len(log_entries_to_save)
-            completed_logs = 0
-            log_workers = min(10, max(1, total_logs))
-
-            def save_single_log(log_entry):
-                try:
-                    saved_log = self.dv_client.save_log_record(log_entry)
-                    if saved_log and saved_log.get('id'):
-                        log_entry['__id'] = saved_log['id']
-                    return log_entry
-                except Exception as exc:
-                    return exc
-
-            saved_logs = []
-            with ThreadPoolExecutor(max_workers=log_workers) as log_executor:
-                log_futures = {
-                    log_executor.submit(save_single_log, le): le
-                    for le in log_entries_to_save
-                }
-                for lf in as_completed(log_futures):
-                    result = lf.result()
-                    if isinstance(result, Exception):
-                        rec_id, original, changed, saved_etag = audit_contexts[id(log_futures[lf])]
-                        rollback_fields = {}
-                        for key in changed:
-                            canonical = CANONICAL_FIELD_MAP.get(key, key)
-                            spec = next((entry for entry in LOG_COMPARE_SPECS if entry[0] == canonical), None)
-                            rollback_fields[key] = _none_if_blank(_get_field_val(original, spec[1] if spec else [key, canonical]))
-                        try:
-                            rollback_res = self._save_master(rollback_fields, rec_id, saved_etag)
-                            with lock:
-                                saved_count -= 1
-                                for row in self.loa_records:
-                                    if row.get('__id') == rec_id:
-                                        row.clear()
-                                        row.update(original)
-                                        _set_version(row, (rollback_res or {}).get('etag') or '')
-                                        break
-                            errors.append(f"Audit save failed for {rec_id} ({result}); Land Master update was rolled back.")
-                        except Exception as rollback_error:
-                            errors.append(
-                                f"Audit save failed for {rec_id} ({result}) and Land Master rollback failed ({rollback_error}). Check Dataverse."
-                            )
-                    else:
-                        saved_logs.append(result)
-                    with lock:
-                        completed_logs += 1
-                        cur_log_prog = completed_logs
-                    if self._window:
-                        try:
-                            self._window.evaluate_js(
-                                f"window.onDataverseSaveProgress && window.onDataverseSaveProgress({cur_log_prog}, {total_logs}, 'Writing audit logs: {cur_log_prog} of {total_logs}...')"
-                            )
-                        except Exception:
-                            pass
-
+        # Audit rows were written per row above; only the in-memory view is left.
+        if baseline_snapshots or saved_logs:
             with lock:
                 newly_saved_rows = baseline_snapshots + saved_logs
                 self.pending_session_logs.extend(dict(log) for log in newly_saved_rows)
@@ -3918,6 +3923,7 @@ class Api:
     def save_staged_conversion_records(self, staged_list: List[Dict[str, Any]]) -> dict:
         return self._save_staged_reference_records(staged_list, 'conversion')
 
+    @_guard_save
     def _save_staged_reference_records(self, staged_list: List[Dict[str, Any]], kind: str) -> dict:
         """Count a row as saved only when its reference write and audit writes succeed."""
         if not self.dv_client:
@@ -4838,6 +4844,7 @@ class Api:
         except Exception as e:
             return {'success': False, 'error': str(e)}
 
+    @_guard_save
     def delete_loa_record_entry(self, record_id: str) -> dict:
         """Delete a Land Master account, audited like every other change.
 
@@ -5220,6 +5227,28 @@ def main() -> None:
         background_color='#0F172A'
     )
     api.set_window(window)
+
+    def _on_closing():
+        # A save in progress finishes first (Land Master row + audit row), then
+        # the window closes by itself. Returning False cancels this close.
+        with _SAVE_GUARD:
+            if getattr(api, '_active_saves', 0) > 0:
+                api._close_after_save = True
+                busy = True
+            else:
+                busy = False
+        if not busy:
+            return None
+
+        def _tell():
+            try:
+                window.evaluate_js("window.onCloseBlockedBySave && window.onCloseBlockedBySave()")
+            except Exception:
+                pass
+        threading.Thread(target=_tell, daemon=True).start()
+        return False
+
+    window.events.closing += _on_closing
 
     def _auto_check_updates():
         # Quiet check shortly after the page loads; a result only interrupts the

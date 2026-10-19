@@ -640,6 +640,10 @@
     setConfirmModalProgress(current, total);
   };
 
+  window.onCloseBlockedBySave = function () {
+    showToast('Saving to Dataverse. The app will close as soon as the save and its log are finished.', 'ok');
+  };
+
   window.onDataverseSaveProgress = function (current, total, customMsg) {
     setConfirmModalProgress(current, total, customMsg || `Saving changes: ${current.toLocaleString()} of ${total.toLocaleString()}...`);
   };
