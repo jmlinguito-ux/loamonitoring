@@ -256,6 +256,10 @@
     { key: 'cr63f_municipality', alt: 'Municipality', label: 'Municipality', width: 130, readonly: false },
     { key: 'cr63f_dbadjustedbarangay', alt: 'DB Adjusted Barangay', label: 'Adjusted Barangay', width: 145, readonly: false },
     { key: 'cr63f_lotareaha', alt: 'Lot Area (Ha)', label: 'Lot Area (Ha)', width: 110, readonly: false, isNum: true },
+    { key: 'cr63f_possrightsstatus', alt: 'Poss Rights Status', label: 'Poss Rights Status', width: 150, readonly: false },
+    { key: 'cr63f_possrightsarea', alt: 'Poss Rights Area (Ha)', label: 'Poss Rights Area (Ha)', width: 155, readonly: false, isNum: true },
+    { key: 'cr63f_possrightscat', alt: 'Possrights Cat', label: 'Possrights Cat', width: 130, readonly: false },
+    { key: 'cr63f_catarea', alt: 'Cat Area (Ha)', label: 'Cat Area (Ha)', width: 120, readonly: false, isNum: true },
     { key: 'new_contracttype', alt: 'Contract Type', label: 'Contract Type', width: 145, readonly: false, isOptions: true, options: CONTRACT_TYPES },
     { key: 'new_mode', alt: 'Mode', label: 'Mode', width: 165, readonly: false, isOptions: true, options: MODES },
     { key: 'cr63f_conversionstatus', alt: 'Conversion Status', label: 'Conversion Status', width: 155, readonly: false },
@@ -279,6 +283,10 @@
     { key: 'work_week', alt: 'Work Week', label: 'Work Week', width: 100, readonly: true },
     { key: 'action_type', alt: 'Action Type', label: 'Action Type', width: 135, readonly: true },
     { key: 'cr63f_acquisitionsublevel', alt: 'Acquisition Sub-Level', label: 'Acquisition Sub-Level', width: 155, readonly: true },
+    { key: 'cr63f_possrightsstatus', alt: 'Poss Rights Status', label: 'Poss Rights Status', width: 150, readonly: true },
+    { key: 'cr63f_possrightsarea', alt: 'Poss Rights Area (Ha)', label: 'Poss Rights Area (Ha)', width: 155, readonly: true },
+    { key: 'cr63f_possrightscat', alt: 'Possrights Cat', label: 'Possrights Cat', width: 130, readonly: true },
+    { key: 'cr63f_catarea', alt: 'Cat Area (Ha)', label: 'Cat Area (Ha)', width: 120, readonly: true },
     { key: 'cr63f_control1', alt: 'Control', label: 'Control Number', width: 140, readonly: true },
     { key: 'area_index', alt: 'cr63f_areaindex', label: 'AREA-INDEX', width: 135, readonly: true },
     { key: 'field_name', alt: 'Field Changed', label: 'Field Changed', width: 165, readonly: true },
@@ -428,6 +436,10 @@
     fMunicipality: document.getElementById('fMunicipality'),
     fDbAdjustedBarangay: document.getElementById('fDbAdjustedBarangay'),
     fLotAreaHa: document.getElementById('fLotAreaHa'),
+    fPossRightsStatus: document.getElementById('fPossRightsStatus'),
+    fPossRightsArea: document.getElementById('fPossRightsArea'),
+    fPossRightsCat: document.getElementById('fPossRightsCat'),
+    fCatArea: document.getElementById('fCatArea'),
     fContractType: document.getElementById('fContractType'),
     fMode: document.getElementById('fMode'),
     fConversionStatus: document.getElementById('fConversionStatus'),
@@ -5096,6 +5108,10 @@
     if (dom.fMunicipality) dom.fMunicipality.value = r['cr63f_municipality'] || r['Municipality'] || '';
     if (dom.fDbAdjustedBarangay) dom.fDbAdjustedBarangay.value = r['cr63f_dbadjustedbarangay'] || r['DB Adjusted Barangay'] || '';
     if (dom.fLotAreaHa) dom.fLotAreaHa.value = r['cr63f_lotareaha'] || r['Lot Area (Ha)'] || '';
+    if (dom.fPossRightsStatus) dom.fPossRightsStatus.value = r['cr63f_possrightsstatus'] || r['Poss Rights Status'] || '';
+    if (dom.fPossRightsArea) dom.fPossRightsArea.value = r['cr63f_possrightsarea'] || r['Poss Rights Area (Ha)'] || '';
+    if (dom.fPossRightsCat) dom.fPossRightsCat.value = r['cr63f_possrightscat'] || r['Possrights Cat'] || '';
+    if (dom.fCatArea) dom.fCatArea.value = r['cr63f_catarea'] || r['Cat Area (Ha)'] || '';
 
     // ensureSelectValue keeps a stored value that is not in the list, so it is never blanked.
     if (dom.fContractType) ensureSelectValue(dom.fContractType, r['new_contracttype'] || r['Contract Type'] || '');
@@ -5170,6 +5186,10 @@
     if (dom.fMunicipality) dom.fMunicipality.value = '';
     if (dom.fDbAdjustedBarangay) dom.fDbAdjustedBarangay.value = '';
     if (dom.fLotAreaHa) dom.fLotAreaHa.value = '';
+    if (dom.fPossRightsStatus) dom.fPossRightsStatus.value = '';
+    if (dom.fPossRightsArea) dom.fPossRightsArea.value = '';
+    if (dom.fPossRightsCat) dom.fPossRightsCat.value = '';
+    if (dom.fCatArea) dom.fCatArea.value = '';
     if (dom.fContractType) dom.fContractType.value = '';
     if (dom.fMode) dom.fMode.value = '';
     if (dom.fConversionStatus) dom.fConversionStatus.value = '';
@@ -5394,6 +5414,14 @@
       'cr63f_dbadjustedbarangay': dom.fDbAdjustedBarangay.value.trim(),
       'Lot Area (Ha)': dom.fLotAreaHa.value.trim(),
       'cr63f_lotareaha': dom.fLotAreaHa.value.trim(),
+      'Poss Rights Status': dom.fPossRightsStatus ? dom.fPossRightsStatus.value.trim() : '',
+      'cr63f_possrightsstatus': dom.fPossRightsStatus ? dom.fPossRightsStatus.value.trim() : '',
+      'Poss Rights Area (Ha)': dom.fPossRightsArea ? dom.fPossRightsArea.value.trim() : '',
+      'cr63f_possrightsarea': dom.fPossRightsArea ? dom.fPossRightsArea.value.trim() : '',
+      'Possrights Cat': dom.fPossRightsCat ? dom.fPossRightsCat.value.trim() : '',
+      'cr63f_possrightscat': dom.fPossRightsCat ? dom.fPossRightsCat.value.trim() : '',
+      'Cat Area (Ha)': dom.fCatArea ? dom.fCatArea.value.trim() : '',
+      'cr63f_catarea': dom.fCatArea ? dom.fCatArea.value.trim() : '',
 
       'Contract Type': dom.fContractType.value.trim(),
       'new_contracttype': dom.fContractType.value.trim(),
@@ -8383,6 +8411,10 @@
     'cr63f_indexno': ['cr63f_indexno', 'index no', 'index no.', 'indexno'],
     'cr63f_type': ['cr63f_type', 'type'],
     'cr63f_lotareaha': ['cr63f_lotareaha', 'lot area (ha)', 'lot area', 'lotareaha'],
+    'cr63f_possrightsstatus': ['cr63f_possrightsstatus', 'poss rights status', 'possrights status', 'possrightsstatus'],
+    'cr63f_possrightsarea': ['cr63f_possrightsarea', 'poss rights area (ha)', 'poss rights area', 'possrightsarea'],
+    'cr63f_possrightscat': ['cr63f_possrightscat', 'possrights cat', 'poss rights cat', 'possrightscat'],
+    'cr63f_catarea': ['cr63f_catarea', 'cat area (ha)', 'cat area', 'catarea'],
     'new_contracttype': ['new_contracttype', 'cr63f_contracttype', 'contract type', 'contracttype'],
     'new_mode': ['new_mode', 'cr63f_mode', 'mode'],
     'cr63f_registeredowner': ['cr63f_registeredowner', 'registered owner', 'registeredowner', 'owner'],

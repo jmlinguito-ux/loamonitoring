@@ -430,6 +430,14 @@ CANONICAL_FIELD_MAP = {
     'RCC Price': 'RCC Price',
     'cr63f_lotareaha': 'Lot Area (ha)',
     'Lot Area (ha)': 'Lot Area (ha)',
+    'cr63f_possrightsstatus': 'Poss Rights Status',
+    'Poss Rights Status': 'Poss Rights Status',
+    'cr63f_possrightsarea': 'Poss Rights Area (Ha)',
+    'Poss Rights Area (Ha)': 'Poss Rights Area (Ha)',
+    'cr63f_possrightscat': 'Possrights Cat',
+    'Possrights Cat': 'Possrights Cat',
+    'cr63f_catarea': 'Cat Area (Ha)',
+    'Cat Area (Ha)': 'Cat Area (Ha)',
     'cr63f_endorsement': 'Endorsement',
     'Endorsement': 'Endorsement',
     'cr63f_buyername': 'Buyer Name',
@@ -478,6 +486,10 @@ FIELD_NAME_TO_DATAVERSE_ATTR = {
     'Lot Area (Ha)': 'cr63f_lotareaha',
     'Lot Area (ha)': 'cr63f_lotareaha',
     'Lot Area': 'cr63f_lotareaha',
+    'Poss Rights Status': 'cr63f_possrightsstatus',
+    'Poss Rights Area (Ha)': 'cr63f_possrightsarea',
+    'Possrights Cat': 'cr63f_possrightscat',
+    'Cat Area (Ha)': 'cr63f_catarea',
     'Endorsed Date': 'cr63f_endorseddate',
     'Secured Date': 'cr63f_secureddate',
     'Secured Endorse Date': 'cr63f_securedendorsedate',
@@ -604,6 +616,10 @@ def build_log_entry(
         muni = _extract_val(rec, ['cr63f_municipality', 'Municipality', 'municipality', 'MUNICIPALITY/CITY'])
         brgy = _extract_val(rec, ['cr63f_dbadjustedbarangay', 'DB Adjusted Barangay', 'Adjusted Barangay', 'Barangay', 'BARANGAY', 'db_adjusted_barangay'])
         area_ha = _extract_val(rec, ['cr63f_lotareaha', 'Lot Area (Ha)', 'Lot Area (ha)', 'Lot Area', 'AREA APPLIED (HAS.)', 'lot_area_ha'])
+        poss_status = _extract_val(rec, ['cr63f_possrightsstatus', 'Poss Rights Status'])
+        poss_area = _extract_val(rec, ['cr63f_possrightsarea', 'Poss Rights Area (Ha)'])
+        poss_cat = _extract_val(rec, ['cr63f_possrightscat', 'Possrights Cat'])
+        cat_area = _extract_val(rec, ['cr63f_catarea', 'Cat Area (Ha)'])
         ctype = _extract_val(rec, ['new_contracttype', 'cr63f_contracttype', 'Contract Type', 'contract_type'])
         mode_val = _extract_val(rec, ['new_mode', 'cr63f_mode', 'Mode', 'MODE', 'mode'])
         cstatus = _extract_val(rec, ['cr63f_conversionstatus', 'Conversion Status', 'DAR STATUS', 'DAR Status', 'Status', 'conversion_status'])
@@ -628,6 +644,10 @@ def build_log_entry(
             'cr63f_municipality': muni, 'Municipality': muni,
             'cr63f_dbadjustedbarangay': brgy, 'DB Adjusted Barangay': brgy, 'Adjusted Barangay': brgy,
             'cr63f_lotareaha': area_ha, 'Lot Area (Ha)': area_ha, 'Lot Area (ha)': area_ha,
+            'cr63f_possrightsstatus': poss_status, 'Poss Rights Status': poss_status,
+            'cr63f_possrightsarea': poss_area, 'Poss Rights Area (Ha)': poss_area,
+            'cr63f_possrightscat': poss_cat, 'Possrights Cat': poss_cat,
+            'cr63f_catarea': cat_area, 'Cat Area (Ha)': cat_area,
             'new_contracttype': ctype, 'cr63f_contracttype': ctype, 'Contract Type': ctype,
             'new_mode': mode_val, 'cr63f_mode': mode_val, 'Mode': mode_val,
             'cr63f_conversionstatus': cstatus, 'Conversion Status': cstatus,
@@ -757,6 +777,10 @@ LOG_COMPARE_SPECS = [
     ('Municipality', ['cr63f_municipality', 'Municipality'], 'text'),
     ('DB Adjusted Barangay', ['cr63f_dbadjustedbarangay', 'DB Adjusted Barangay', 'Adjusted Barangay'], 'text'),
     ('Lot Area (Ha)', ['cr63f_lotareaha', 'Lot Area (Ha)', 'Lot Area (ha)', 'Lot Area'], 'text'),
+    ('Poss Rights Status', ['cr63f_possrightsstatus', 'Poss Rights Status'], 'text'),
+    ('Poss Rights Area (Ha)', ['cr63f_possrightsarea', 'Poss Rights Area (Ha)'], 'number'),
+    ('Possrights Cat', ['cr63f_possrightscat', 'Possrights Cat'], 'text'),
+    ('Cat Area (Ha)', ['cr63f_catarea', 'Cat Area (Ha)'], 'number'),
     ('RCC Price', ['cr63f_rccprice', 'RCC Price'], 'currency'),
     ('RCC Terms', ['cr63f_rccterms', 'RCC Terms'], 'text'),
     ('Secured Date', ['cr63f_secureddate', 'Secured Date'], 'date'),
@@ -874,6 +898,15 @@ def _audit_values_equal(field_name: str, left: Any, right: Any) -> bool:
         return _norm_pct_str(left) == _norm_pct_str(right)
     if spec and spec[2] == 'date':
         return _norm_date_str(left) == _norm_date_str(right)
+    if spec and spec[2] == 'number':
+        # 1, 1.0 and 1.00 are the same area; blank only equals blank.
+        left_text, right_text = _norm_text_str(left), _norm_text_str(right)
+        if not left_text or not right_text:
+            return left_text == right_text
+        try:
+            return Decimal(left_text.replace(',', '')) == Decimal(right_text.replace(',', ''))
+        except InvalidOperation:
+            return left_text == right_text
     return _norm_text_str(left) == _norm_text_str(right)
 
 
@@ -2948,7 +2981,9 @@ class Api:
                 'cr63f_type', 'cr63f_indexno', 'cr63f_areaindex', 'cr63f_titleno',
                 'cr63f_control1', 'cr63f_registeredowner', 'cr63f_authorizedrepresentative',
                 'cr63f_entity', 'cr63f_province', 'cr63f_municipality', 'cr63f_dbadjustedbarangay',
-                'cr63f_lotareaha', 'new_contracttype', 'new_mode', 'cr63f_conversionstatus',
+                'cr63f_lotareaha', 'cr63f_possrightsstatus', 'cr63f_possrightsarea',
+                'cr63f_possrightscat', 'cr63f_catarea',
+                'new_contracttype', 'new_mode', 'cr63f_conversionstatus',
                 'cr63f_rccprice', 'cr63f_rccterms', 'cr63f_endorseddate', 'work_week', 'cr63f_secureddate',
                 'cr63f_securedendorsedate', 'cr63f_totalcontractprice',
                 'cr63f_totalpaymentdeductibletotcp', 'cr63f_balance', 'cr63f_paid'
