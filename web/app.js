@@ -230,6 +230,7 @@
     'SPBULC',
     'SPCC',
     'SPNEC',
+    'SPNEW',
     'SPPPHI',
     'SPTANC',
     'SPNorC',
