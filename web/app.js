@@ -9622,7 +9622,7 @@ function renderLogsChunk(startIdx, count) {
           : changes.slice(0, 2).map(c => `<span class="ov-chip mut">${escapeHtml(prettyFieldName(c.field_name))}</span>`).join('')
             + (changes.length > 2 ? `<span class="ov-chip mut" title="${escapeHtml(changes.slice(2).map(c => prettyFieldName(c.field_name)).join(', '))}">+${changes.length - 2} more</span>` : '');
         const primarySrc = a.is_new ? 'new' : ((a.sources || [])[0] || 'manual');
-        const sub = [a.area_index && a.area_index !== a.account ? a.area_index : '', a.mode ? titleCaseStatus(a.mode) : '', a.contract_price ? formatPesoCompact(a.contract_price) : ''].filter(Boolean).join(' · ');
+        const sub = [a.area_index && a.area_index !== a.account ? a.area_index : '', a.mode ? String(a.mode).trim().toUpperCase() : '', a.contract_price ? formatPesoCompact(a.contract_price) : ''].filter(Boolean).join(' · ');
         let html = `
           <tr class="ov-row ${open ? 'open' : ''}" data-acct="${escapeHtml(a.account)}">
             <td class="ov-col-caret"><button type="button" class="ov-caret" aria-expanded="${open}" aria-label="${open ? 'Collapse' : 'Expand'} ${escapeHtml(a.account)}">${open ? '▾' : '▸'}</button></td>
