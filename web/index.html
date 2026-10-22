@@ -662,6 +662,11 @@
           <input type="text" id="fControl" class="input mono-input" placeholder="e.g. ABC-DEF-00001" required />
         </div>
 
+        <!-- Reference lookup result: matched, no match, or reference differs from the stored values -->
+        <div role="status" aria-live="polite" style="white-space: normal;">
+          <span id="badgeMatchStatus" class="match-badge waiting" style="white-space: normal; line-height: 1.4;">Pick an Area-Index to look up the references.</span>
+        </div>
+
         <!-- 2. Payment Status (Manual entry & live calculation) -->
         <div class="section-subhead">
           2. Payment Status

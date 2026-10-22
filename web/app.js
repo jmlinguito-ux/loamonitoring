@@ -4818,7 +4818,45 @@
 
     // An account loaded by picking its Area-Index keeps its stored values: while the
     // Area-Index still names that account, a lookup only compares with the reference.
-    const onIdentityInput = () => {
+    const onIdentityInput = (e) => {
+      // Changing TYPE on a loaded account means a different account (an Area-Index
+      // is reused across Types): load that Type's account, or start a new entry and
+      // fill it from the reference.
+      const areaNow = (dom.fAreaIndex ? dom.fAreaIndex.value : '').trim();
+      const areaWasPicked = drawerPicked
+        || (lastPickedAreaText && areaNow.toUpperCase() === lastPickedAreaText.toUpperCase());
+      if (e && e.target === dom.fType && areaWasPicked) {
+        const type = dom.fType.value.trim().toUpperCase();
+        const area = areaNow;
+        if (!drawerPicked || type !== drawerPicked.type) {
+          const other = (state.records || []).find(r => recordType(r) === type
+            && recordAreaIndex(r).toUpperCase() === area.toUpperCase());
+          if (other) {
+            pickExistingArea(area, other);
+          } else {
+            // No account of this Type for the Area-Index: a blank new entry. Only
+            // what the references hold for it is filled in by the lookup.
+            if (drawerPicked) setPickedDrawerMode(false, true);
+            drawerPicked = null;
+            lastAutoPickedArea = '';
+            // Index No and Title No came from the other Type's account.
+            if (dom.fIndexNo) dom.fIndexNo.value = '';
+            if (dom.fTitleNo) dom.fTitleNo.value = '';
+            if (dom.fControl) dom.fControl.value = '';
+            clearEntryFields();
+            applyEntryLogEndorsedDate();
+            // No lookup either: nothing is filled for a Type that has no account
+            // (decision 2026-10-22). Typing an Index No or Title No looks it up.
+            cancelPendingLookup();
+            if (dom.badgeMatchStatus) {
+              dom.badgeMatchStatus.className = 'match-badge waiting';
+              dom.badgeMatchStatus.textContent = `No ${type} account for ${area || 'this Area-Index'}: new entry, nothing looked up.`;
+            }
+            showToast(`No ${type} account for ${area || 'this Area-Index'}. This is a new entry.`, 'info');
+          }
+          return;
+        }
+      }
       if (drawerPicked && dom.fRecordId.value && dom.fAreaIndex
           && dom.fAreaIndex.value.trim().toUpperCase() === drawerPicked.area.toUpperCase()) {
         triggerLiveLookup(false, false);
@@ -4826,13 +4864,25 @@
       }
       triggerLiveLookup();
     };
-    const lookupTriggers = [dom.fType, dom.fIndexNo, dom.fAreaIndex, dom.fTitleNo];
+    const lookupTriggers = [dom.fType, dom.fIndexNo, dom.fTitleNo];
     lookupTriggers.forEach(input => {
       if (input) {
         input.addEventListener('input', onIdentityInput);
         input.addEventListener('change', onIdentityInput);
       }
     });
+    if (dom.fAreaIndex) {
+      dom.fAreaIndex.addEventListener('change', () => {
+        // Leaving the field may be the start of a click on a suggestion: wait for
+        // that click, and skip the lookup if it picked an account.
+        setTimeout(() => {
+          const typed = dom.fAreaIndex.value.trim().toUpperCase();
+          const type = (dom.fType ? dom.fType.value : '').trim().toUpperCase();
+          if (lastAutoPickedArea === `${type}|${typed}`) return;
+          onIdentityInput();
+        }, 250);
+      });
+    }
 
     [dom.fSecuredDate, dom.fSecuredEndorseDate, dom.fEndorsedDate].forEach(input => {
       if (input) {
@@ -4894,9 +4944,11 @@
 
         const areaVal = String(r['cr63f_areaindex'] || r['Area-Index'] || r['AREA-INDEX'] || '').trim();
         if (areaVal) {
-          const upper = areaVal.toUpperCase();
-          if (!areaMap.has(upper)) {
-            areaMap.set(upper, { key: areaVal, rec: r });
+          // An Area-Index is reused across Types (GAP-46 can be a LAND and a ROW
+          // account), so each Type gets its own suggestion.
+          const mapKey = `${rType}|${areaVal.toUpperCase()}`;
+          if (!areaMap.has(mapKey)) {
+            areaMap.set(mapKey, { key: areaVal, mapKey, rec: r });
           }
         }
       });
@@ -4924,7 +4976,7 @@
         const sub = [owner, loc].filter(Boolean).join(' • ');
 
         html += `
-          <div class="area-opt" data-area-key="${escapeHtml(item.key)}">
+          <div class="area-opt" data-area-key="${escapeHtml(item.key)}" data-map-key="${escapeHtml(item.mapKey)}">
             <div class="area-opt-main">
               <span>${escapeHtml(item.key)}</span>
               <span style="font-size: 10px; font-weight: normal; color: var(--ink3);">${escapeHtml(r['cr63f_type'] || r['Type'] || '')}</span>
@@ -4941,7 +4993,7 @@
         opt.addEventListener('click', (e) => {
           e.stopPropagation();
           const k = opt.dataset.areaKey;
-          const match = areaMap.get(k.toUpperCase());
+          const match = areaMap.get(opt.dataset.mapKey);
           if (match) pickExistingArea(k, match.rec);
           dom.areaIndexSuggestions.classList.add('hidden');
         });
@@ -4954,16 +5006,20 @@
       if (drawerPicked && dom.fRecordId.value
           && dom.fAreaIndex.value.trim().toUpperCase() !== drawerPicked.area.toUpperCase()) {
         setPickedDrawerMode(false, true);
+        // Index No and Title No belong to the picked account's Area-Index; keeping
+        // them would make the lookup match the old account's reference row.
+        if (dom.fIndexNo) dom.fIndexNo.value = '';
+        if (dom.fTitleNo) dom.fTitleNo.value = '';
       }
+      cancelPendingLookup();
       renderAreaSuggestions(dom.fAreaIndex.value);
-      clearTimeout(autoPickTimer);
-      autoPickTimer = setTimeout(autoPickExactArea, 350);
     });
-    // Tab / Enter / leaving the field with a complete Area-Index loads it too, so
-    // typing gives the same result as clicking the suggestion.
-    dom.fAreaIndex.addEventListener('change', autoPickExactArea);
+    // Typing only filters the list. An existing account loads, and the Finance /
+    // Conversion lookups run, only when its suggestion is clicked (decision
+    // 2026-10-22). A new Area-Index (no suggestion picked) is looked up when the
+    // field is left.
     dom.fAreaIndex.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') { e.preventDefault(); autoPickExactArea(); }
+      if (e.key === 'Enter') e.preventDefault();
     });
 
     if (dom.fControl) {
@@ -5010,8 +5066,10 @@
   // Endorsed Date is always today: on open, after picking or loading an account, when
   // switching between update and new, and a Finance lookup never replaces it.
   let drawerIsEntryLog = false;
-  let autoPickTimer = null;
   let lastAutoPickedArea = '';
+  // The Area-Index text last chosen from the list; changing TYPE then loads that
+  // Type's account for it, if there is one.
+  let lastPickedAreaText = '';
 
   function applyEntryLogEndorsedDate() {
     if (!drawerIsEntryLog || !dom.fEndorsedDate) return;
@@ -5020,19 +5078,7 @@
   }
 
   const recordAreaIndex = (r) => String(r['cr63f_areaindex'] || r['Area-Index'] || r['AREA-INDEX'] || '').trim();
-
-  // A typed Area-Index that exactly matches an existing account loads it, the same as
-  // clicking its suggestion.
-  function autoPickExactArea() {
-    clearTimeout(autoPickTimer);
-    if (!drawerIsEntryLog || !dom.fAreaIndex) return;
-    const typed = dom.fAreaIndex.value.trim().toUpperCase();
-    if (!typed || typed === lastAutoPickedArea) return;
-    const rec = (state.records || []).find(r => recordAreaIndex(r).toUpperCase() === typed);
-    if (!rec) return;
-    pickExistingArea(recordAreaIndex(rec), rec);
-    if (dom.areaIndexSuggestions) dom.areaIndexSuggestions.classList.add('hidden');
-  }
+  const recordType = (r) => String((r && (r['cr63f_type'] || r['Type'])) || '').trim().toUpperCase();
 
   function setPickedDrawerMode(update, clearControl = false) {
     if (!drawerPicked) return;
@@ -5054,8 +5100,13 @@
 
   function pickExistingArea(areaKey, templateRec) {
     const wanted = String(areaKey || '').trim().toUpperCase();
-    lastAutoPickedArea = wanted;
-    const accounts = (state.records || []).filter(r => recordAreaIndex(r).toUpperCase() === wanted);
+    // The account is Type + Area-Index: the same Area-Index under another Type is
+    // a different account (e.g. GAP-46 LAND vs GAP-46 ROW).
+    const wantedType = recordType(templateRec) || (dom.fType ? dom.fType.value : '').trim().toUpperCase();
+    lastAutoPickedArea = `${wantedType}|${wanted}`;
+    lastPickedAreaText = String(areaKey || '').trim();
+    const accounts = (state.records || []).filter(r => recordAreaIndex(r).toUpperCase() === wanted
+      && (!wantedType || recordType(r) === wantedType));
     const rec = accounts.length === 1 ? accounts[0] : null;
     const hasGridEdits = rec && state.stagedEdits && state.stagedEdits[rec.__id]
       && Object.keys(state.stagedEdits[rec.__id]).length;
@@ -5065,10 +5116,12 @@
       populateFormFromRecord(rec, areaKey);
       const control = dom.fControl ? dom.fControl.value.trim() : '';
       drawerPicked = {
-        id: String(rec.__id), control, area: dom.fAreaIndex ? dom.fAreaIndex.value.trim() : areaKey,
+        id: String(rec.__id), control, type: recordType(rec), area: dom.fAreaIndex ? dom.fAreaIndex.value.trim() : areaKey,
         baseline: drawerBaseline, label: control || areaKey,
       };
       setPickedDrawerMode(true);
+      // The loaded account keeps its stored amounts; the lookup only compares.
+      triggerLiveLookup(false, false);
       showToast(`Loaded ${control || areaKey}. Save updates this account and logs the changes. Type a different Control Number to create a new account from it instead.`, 'info');
       return;
     }
@@ -5081,8 +5134,9 @@
     drawerBaseline = null;
     if (dom.fControl) { dom.fControl.value = ''; dom.fControl.focus(); }
     applyEntryLogEndorsedDate();
+    triggerLiveLookup(false);
     showToast(accounts.length > 1
-      ? `${accounts.length} accounts share ${areaKey}. Filled from one as a template; enter the Control Number for this account.`
+      ? `${accounts.length} ${wantedType || ''} accounts share ${areaKey}. Filled from one as a template; enter the Control Number for this account.`
       : hasGridEdits
         ? `${areaKey} has unsaved grid edits, so it was used as a template. Enter a new Control Number, or save the grid edits first.`
         : `Filled from ${areaKey}. Enter a new Control Number for this account.`, 'info');
@@ -5158,7 +5212,14 @@
     triggerLiveLookup(false, false);
   }
 
+  function resetMatchBadge() {
+    if (!dom.badgeMatchStatus) return;
+    dom.badgeMatchStatus.className = 'match-badge waiting';
+    dom.badgeMatchStatus.textContent = 'Pick an Area-Index to look up the references.';
+  }
+
   function openDrawer() {
+    resetMatchBadge();
     if (!dom.entryDrawer) return;
     dom.entryDrawer.classList.add('open');
     dom.entryDrawer.style.display = 'flex';
@@ -5173,22 +5234,9 @@
     dom.entryDrawer.style.display = 'none';
   }
 
-  function openNewEntry() {
-    if (!dom.drawerTitle) return;
-    dom.drawerTitle.textContent = 'New LOA Entry / Log';
-    dom.fRecordId.value = '';
-    drawerPicked = null;
-    drawerIsEntryLog = true;
-    lastAutoPickedArea = '';
-
-    if (dom.areaIndexSuggestions) dom.areaIndexSuggestions.classList.add('hidden');
-
-    if (dom.fType) dom.fType.value = 'LAND';
-    if (dom.fIndexNo) dom.fIndexNo.value = '';
-    if (dom.fAreaIndex) dom.fAreaIndex.value = '';
-    if (dom.fTitleNo) dom.fTitleNo.value = '';
-    if (dom.fControl) dom.fControl.value = '';
-
+  // Empty every field below the identity block (amounts, owner, location, status,
+  // dates other than Endorsed Date).
+  function clearEntryFields() {
     clearAutofillFields();
 
     if (dom.fRegisteredOwner) dom.fRegisteredOwner.value = '';
@@ -5210,6 +5258,27 @@
     if (dom.fRccPrice) dom.fRccPrice.value = '';
     if (dom.fSecuredDate) dom.fSecuredDate.value = '';
     if (dom.fSecuredEndorseDate) dom.fSecuredEndorseDate.value = '';
+    drawerStored = null;
+    drawerAutofilled = false;
+  }
+
+  function openNewEntry() {
+    if (!dom.drawerTitle) return;
+    dom.drawerTitle.textContent = 'New LOA Entry / Log';
+    dom.fRecordId.value = '';
+    drawerPicked = null;
+    drawerIsEntryLog = true;
+    lastAutoPickedArea = ''; lastPickedAreaText = '';
+
+    if (dom.areaIndexSuggestions) dom.areaIndexSuggestions.classList.add('hidden');
+
+    if (dom.fType) dom.fType.value = 'LAND';
+    if (dom.fIndexNo) dom.fIndexNo.value = '';
+    if (dom.fAreaIndex) dom.fAreaIndex.value = '';
+    if (dom.fTitleNo) dom.fTitleNo.value = '';
+    if (dom.fControl) dom.fControl.value = '';
+
+    clearEntryFields();
     
     // Endorsed Date: today (MM/DD/YYYY).
     applyEntryLogEndorsedDate();
@@ -5284,6 +5353,13 @@
   // (e.g. after switching to another Area-Index) is ignored, so it can never write the
   // previous account's reference values over the current one.
   let lookupSeq = 0;
+  // Typing an Area-Index cancels a lookup still waiting from an earlier field, so
+  // nothing is looked up for a half-typed Area-Index.
+  function cancelPendingLookup() {
+    clearTimeout(debounceTimer);
+    lookupSeq++;
+  }
+
   function triggerLiveLookup(clearOnNoMatch = true, applyToForm = true) {
     clearTimeout(debounceTimer);
     const seq = ++lookupSeq;
