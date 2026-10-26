@@ -1252,6 +1252,69 @@ def _guard_save(method):
     return wrapper
 
 
+class _SaveProgress:
+    """Save progress counted in requests, not whole records.
+
+    Each record is split into a few steps (audit check, Land Master write, audit
+    log), so even a one-row save moves the bar while its requests run instead of
+    sitting at 0% until everything is done. Thread-safe; updates are sent only
+    when the whole percent or the finished-record count changes.
+    """
+
+    def __init__(self, api, records: int, steps: int, label: str, prep_steps: int = 0):
+        self.api = api
+        self.records = max(0, int(records))
+        self.steps = max(1, int(steps))
+        self.label = label
+        self.total = self.records * self.steps + max(0, int(prep_steps))
+        self.done_steps = 0
+        self.done_records = 0
+        self._lock = threading.Lock()
+        self._last = None
+
+    def _advance(self, steps: int, records: int = 0, message: str = '') -> None:
+        with self._lock:
+            self.done_steps = min(self.total, self.done_steps + max(0, steps))
+            self.done_records = min(self.records, self.done_records + records)
+            done, finished = self.done_steps, self.done_records
+            pct = int(done * 100 / self.total) if self.total else 0
+            if not message and self._last == (pct, finished):
+                return
+            self._last = (pct, finished)
+        self.api._report_progress(
+            done, self.total,
+            message or f'{self.label}: {finished:,} of {self.records:,} saved...')
+
+    def start(self, message: str) -> None:
+        self._advance(0, 0, message)
+
+    def prep_done(self, steps: int = 1) -> None:
+        self._advance(steps)
+
+    def record(self) -> '_RecordProgress':
+        return _RecordProgress(self)
+
+
+class _RecordProgress:
+    """Steps for one record; done() always completes it, even after an error."""
+
+    def __init__(self, parent: _SaveProgress):
+        self.parent = parent
+        self.taken = 0
+        self.closed = False
+
+    def step(self) -> None:
+        # The last step is kept for done(), so the record only counts as saved then.
+        if not self.closed and self.taken < self.parent.steps - 1:
+            self.taken += 1
+            self.parent._advance(1)
+
+    def done(self) -> None:
+        if not self.closed:
+            self.closed = True
+            self.parent._advance(self.parent.steps - self.taken, 1)
+
+
 class Api:
     def __init__(self):
         self.dv_client: Optional[dv.DataverseClient] = None
@@ -1428,7 +1491,8 @@ class Api:
         saved_audit_snapshots: List[Dict[str, Any]] = []
         save_errors: List[str] = []
         total = len(items_to_save)
-        self._report_progress(0, total, 'Checking audit history...')
+        progress = _SaveProgress(self, total, 3, progress_label, prep_steps=1 if total else 0)
+        progress.start('Checking audit history...')
         # One logs query for the whole run; if it fails, each account is
         # checked on its own.
         known_keys = None
@@ -1437,8 +1501,8 @@ class Api:
                 known_keys = self._logged_account_keys()
             except Exception:
                 known_keys = None
+            progress.prep_done()
         progress_lock = threading.Lock()
-        completed = [0]
 
         def save_account(item):
             """Baseline, master update and audit row for ONE account.
@@ -1448,6 +1512,7 @@ class Api:
             flight, never thousands of updated accounts without their audit rows.
             """
             result = {'item': item, 'baseline': None, 'saved': False, 'error': ''}
+            steps = progress.record()
             try:
                 try:
                     result['baseline'] = self._write_baseline_if_missing(
@@ -1455,11 +1520,13 @@ class Api:
                 except Exception as ex:
                     result['error'] = f"Audit baseline failed for {item.get('id')}: {ex}; Land Master was not updated."
                     return result
+                steps.step()
                 try:
                     res = self._save_master(item['fields'], item['id'], item.get('etag'))
                 except Exception as ex:
                     result['error'] = f"Master save error for {item.get('id')}: {ex}"
                     return result
+                steps.step()
                 new_etag = (res or {}).get('etag') or ''
                 try:
                     saved_log = self.dv_client.save_log_record(item['snapshot'])
@@ -1477,10 +1544,7 @@ class Api:
                             f"({rollback_error}). Check Dataverse.")
                 return result
             finally:
-                with progress_lock:
-                    completed[0] += 1
-                    done = completed[0]
-                self._report_progress(done, total, f'{progress_label}: {done} of {total}...')
+                steps.done()
 
         derivation_snapshots = []
         if items_to_save:
@@ -3775,8 +3839,12 @@ class Api:
         audit_contexts = {}
         reserved_controls = {}
 
-        def save_single_record(item):
+        progress = _SaveProgress(self, total_items, 3, 'Saving records and audit logs')
+        progress.start(f'Saving {total_items:,} record(s) to Dataverse...')
+
+        def save_single_record(item, steps=None):
             nonlocal saved_count
+            steps = steps or progress.record()
             rec_id = item.get('id')
             fields = item.get('fields', {})
             if not rec_id or not fields:
@@ -3857,9 +3925,11 @@ class Api:
                 if baseline:
                     with lock:
                         baseline_snapshots.append(baseline)
+                steps.step()
 
                 res = self._save_master(fields, rec_id, orig_rec.get('__etag'))
                 new_etag = (res or {}).get('etag') or ''
+                steps.step()
 
                 # The audit row is written right after THIS row's master save,
                 # not after every row has saved. Closing the app mid-save can
@@ -3919,22 +3989,23 @@ class Api:
                 with lock:
                     errors.append(f"Row {rec_id}: {e}")
 
+        def save_with_progress(item):
+            steps = progress.record()
+            try:
+                save_single_record(item, steps)
+            except Exception as exc:
+                # Never drop a row silently: an unexpected error counts as failed.
+                with lock:
+                    errors.append(f"Row {item.get('id')}: {exc}")
+            finally:
+                steps.done()
+
         # Phase 1: Parallel save of LOA master records
         max_workers = min(10, max(1, total_items))
-        completed_records = 0
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
-            futures = [executor.submit(save_single_record, itm) for itm in staged_list]
+            futures = [executor.submit(save_with_progress, itm) for itm in staged_list]
             for future in as_completed(futures):
-                with lock:
-                    completed_records += 1
-                    cur_prog = completed_records
-                if self._window:
-                    try:
-                        self._window.evaluate_js(
-                            f"window.onDataverseSaveProgress && window.onDataverseSaveProgress({cur_prog}, {total_items}, 'Saving records and audit logs: {cur_prog} of {total_items}...')"
-                        )
-                    except Exception:
-                        pass
+                future.result()
 
         # Audit rows were written per row above; only the in-memory view is left.
         if baseline_snapshots or saved_logs:
@@ -3999,7 +4070,10 @@ class Api:
         self._reference_save_blocked = blocked
         now_str = datetime.now().strftime('%m/%d/%Y %I:%M %p')
         baselines = getattr(self, '_reference_edit_baselines', {})
-        for position, item in enumerate(staged_list):
+        progress = _SaveProgress(self, len(staged_list), 3, f'Saving {kind} records and audit logs')
+        progress.start(f'Saving {len(staged_list):,} {kind} record(s) to Dataverse...')
+        for item in staged_list:
+            steps = progress.record()
             input_id = str(item.get('id', ''))
             fields = {key: value for key, value in item.get('fields', {}).items() if not key.startswith('__')}
             original = {}
@@ -4037,6 +4111,7 @@ class Api:
                 title = str(_get_field_val(merged, ['cr63f_titlenumber', 'TITLE NUMBER', 'Title Mod', 'Title No']) or '')
                 index = str(_get_field_val(merged, ['Corridor Index', 'INDEX NO', 'Index No']) or '')
                 master = self._find_or_fetch_master_record(area_index=area, title_no=title, index_no=index)
+                steps.step()
                 snapshot = {**master, **merged}
                 index = index or str(master.get('cr63f_indexno') or master.get('Index No') or '')
                 title = title or str(master.get('cr63f_titleno') or master.get('Title No') or '')
@@ -4045,6 +4120,7 @@ class Api:
                 if not result or result.get('success') is False:
                     raise RuntimeError('Dataverse did not confirm the reference write.')
                 source_written = True
+                steps.step()
                 written_id = written_id or str(result.get('id') or '')
                 if not written_id:
                     raise RuntimeError('Dataverse did not return the created reference ID.')
@@ -4092,12 +4168,7 @@ class Api:
                 failed_ids.append(input_id)
                 errors.append(f'{kind.title()} row {input_id}: {problem}')
             finally:
-                if self._window:
-                    try:
-                        self._window.evaluate_js(
-                            f"window.onDataverseSaveProgress && window.onDataverseSaveProgress({position + 1}, {len(staged_list)}, 'Saving {kind} records and audit logs...')")
-                    except Exception:
-                        pass
+                steps.done()
         if persisted_logs:
             self.pending_session_logs.extend(dict(log) for log in persisted_logs)
             self._add_log_records(persisted_logs)

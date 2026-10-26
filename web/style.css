@@ -1990,7 +1990,28 @@ td.cell-active.cell-invalid {
   width: 0%;
   background: linear-gradient(90deg, var(--accent) 0%, var(--accent-hover) 50%, var(--ok) 100%);
   border-radius: 999px;
-  transition: width 0.12s ease-out;
+  transition: width 0.35s ease-out;
+}
+
+/* While a save is running, a light sweeps across the track so the bar never
+   looks frozen during a slow request. */
+.modal-progress-wrap.is-busy .modal-progress-track::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  width: 35%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.55), transparent);
+  animation: modal-progress-sweep 1.3s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes modal-progress-sweep {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(290%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .modal-progress-wrap.is-busy .modal-progress-track::after { animation: none; opacity: 0; }
 }
 
 .modal-progress-meta {

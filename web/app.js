@@ -602,6 +602,7 @@
 
       if (dom.confirmModalProgressWrap) {
         dom.confirmModalProgressWrap.classList.add('hidden');
+        dom.confirmModalProgressWrap.classList.remove('is-busy');
       }
       if (dom.confirmModalProgressBar) {
         dom.confirmModalProgressBar.style.width = '0%';
@@ -618,6 +619,9 @@
   function closeConfirmModal(result = false) {
     if (dom.confirmModal) {
       dom.confirmModal.classList.add('hidden');
+    }
+    if (dom.confirmModalProgressWrap) {
+      dom.confirmModalProgressWrap.classList.remove('is-busy');
     }
     if (confirmModalResolver) {
       const r = confirmModalResolver;
@@ -643,6 +647,17 @@
     if (dom.confirmModalProgressStatus) {
       dom.confirmModalProgressStatus.textContent = statusText || `Syncing ${current.toLocaleString()} / ${total.toLocaleString()} record(s)...`;
     }
+    if (dom.confirmModalProgressWrap) {
+      dom.confirmModalProgressWrap.classList.toggle('is-busy', pct < 100);
+    }
+  }
+
+  // Shows the bar at 100% for a moment before the modal closes, so a quick save
+  // is seen to finish instead of vanishing.
+  async function finishConfirmModalProgress(statusText = 'Saved.') {
+    if (!dom.confirmModalProgressWrap || dom.confirmModalProgressWrap.classList.contains('hidden')) return;
+    setConfirmModalProgress(1, 1, statusText);
+    await new Promise(resolve => setTimeout(resolve, 600));
   }
 
   window.onFinanceSyncProgress = function (current, total) {
@@ -4552,6 +4567,7 @@
         }
       }
 
+      await finishConfirmModalProgress(`Saved ${totalSaved.toLocaleString()} record(s) and logged the changes.`);
       closeConfirmModal(false);
 
       showToast(`Successfully saved ${totalSaved.toLocaleString()} record(s) to Dataverse and logged changes.`, 'ok');
@@ -6392,6 +6408,7 @@
       filterAndRenderFinance();
       if (res && res.logged_count) fetchEntryLogs();
       if (res && res.success) {
+        await finishConfirmModalProgress(`Saved ${(res.saved_count || rowIds.length).toLocaleString()} finance record(s).`);
         closeConfirmModal(false);
         showToast(res.message || `Successfully saved ${res.saved_count || rowIds.length} finance record(s) to Dataverse.`, 'ok');
 
@@ -6604,6 +6621,7 @@
       const res = await window.pywebview.api.sync_uploaded_finance_to_dataverse();
       if (res.success || res.synced_count) {
         if (dom.confirmModalProgressBar) dom.confirmModalProgressBar.style.width = '100%';
+        if (dom.confirmModalProgressWrap) dom.confirmModalProgressWrap.classList.remove('is-busy');
         if (dom.confirmModalProgressPercent) dom.confirmModalProgressPercent.textContent = '100%';
         if (dom.confirmModalProgressStatus) {
           dom.confirmModalProgressStatus.textContent = res.message || 'Sync finished.';
@@ -7585,6 +7603,7 @@
       filterAndRenderConversion();
       if (res && res.logged_count) fetchEntryLogs();
       if (res && res.success) {
+        await finishConfirmModalProgress(`Saved ${(res.saved_count || rowIds.length).toLocaleString()} conversion record(s).`);
         closeConfirmModal(false);
         showToast(res.message || `Successfully saved ${res.saved_count || rowIds.length} conversion record(s) to Dataverse.`, 'ok');
 
@@ -7792,6 +7811,7 @@
       const res = await window.pywebview.api.sync_uploaded_conversion_to_dataverse();
       if (res.success || res.synced_count) {
         if (dom.confirmModalProgressBar) dom.confirmModalProgressBar.style.width = '100%';
+        if (dom.confirmModalProgressWrap) dom.confirmModalProgressWrap.classList.remove('is-busy');
         if (dom.confirmModalProgressPercent) dom.confirmModalProgressPercent.textContent = '100%';
         if (dom.confirmModalProgressStatus) {
           dom.confirmModalProgressStatus.textContent = res.message || 'Sync finished.';
@@ -9827,6 +9847,7 @@ function renderLogsChunk(startIdx, count) {
       if (dom.btnConfirmModalClose) dom.btnConfirmModalClose.classList.add('hidden');
       setConfirmModalProgress(0, preview.to_change, 'Checking audit history...');
       const res = await window.pywebview.api.recalculate_payment_fields(true);
+      if (res && res.success) await finishConfirmModalProgress('Recalculation finished.');
       closeConfirmModal(false);
       if (res && res.success) {
         showToast(res.message, 'ok');
