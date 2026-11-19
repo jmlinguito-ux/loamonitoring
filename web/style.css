@@ -1492,7 +1492,7 @@ td.cell-active.cell-invalid {
 .col-picker-menu {
   position: absolute;
   top: calc(100% + 4px);
-  right: 0;
+  left: 0;
   width: 270px;
   max-height: 420px;
   overflow-y: auto;
@@ -1500,7 +1500,7 @@ td.cell-active.cell-invalid {
   border: 1px solid var(--line-strong);
   border-radius: var(--r-sm);
   box-shadow: var(--shadow-lg);
-  z-index: 100;
+  z-index: 1000;
   padding: 8px;
   display: flex;
   flex-direction: column;

@@ -239,7 +239,8 @@
     'SPTARC',
     'SPTAGC',
     'SPPC',
-    'N/A'
+    'N/A',
+    'NO DATA'
   ];
 
   // Default Column Definitions — All Custom Columns
@@ -3247,12 +3248,47 @@
     }
   }
 
+  // Columns menus open below their button in a fixed layer, kept inside the window,
+  // so the table card's edges can never cut them off.
+  function placeColPickerMenu(menu, button) {
+    if (!menu || !button || menu.classList.contains('hidden')) return;
+    const gap = 4, margin = 12;
+    const r = button.getBoundingClientRect();
+    menu.style.position = 'fixed';
+    menu.style.right = 'auto';
+    menu.style.maxHeight = '';
+    const width = menu.offsetWidth || 270;
+    const left = Math.max(margin, Math.min(r.left, window.innerWidth - width - margin));
+    let top = r.bottom + gap;
+    let room = window.innerHeight - top - margin;
+    if (room < 220 && r.top - gap - margin > room) {
+      // Not enough space below: open above the button instead.
+      room = r.top - gap - margin;
+      top = Math.max(margin, r.top - gap - Math.min(menu.scrollHeight, room));
+    }
+    menu.style.left = `${left}px`;
+    menu.style.top = `${top}px`;
+    menu.style.maxHeight = `${Math.max(160, Math.min(560, room))}px`;
+  }
+
+  function placeOpenColPickerMenus() {
+    [['colPickerMenu', 'btnColumnsPicker'], ['colPickerMenuFinance', 'btnColumnsPickerFinance'],
+      ['colPickerMenuConversion', 'btnColumnsPickerConversion'], ['colPickerMenuLogs', 'btnColumnsPickerLogs']]
+      .forEach(([m, b]) => placeColPickerMenu(dom[m], dom[b]));
+  }
+  window.addEventListener('resize', placeOpenColPickerMenus);
+  document.addEventListener('scroll', (e) => {
+    if (e.target && e.target.closest && e.target.closest('.col-picker-menu')) return;
+    placeOpenColPickerMenus();
+  }, true);
+
   function setupColumnPicker() {
     if (!dom.btnColumnsPicker || !dom.colPickerMenu) return;
 
     dom.btnColumnsPicker.addEventListener('click', (e) => {
       e.stopPropagation();
       dom.colPickerMenu.classList.toggle('hidden');
+      placeColPickerMenu(dom.colPickerMenu, dom.btnColumnsPicker);
     });
 
     document.addEventListener('click', (e) => {
@@ -5764,6 +5800,7 @@
     dom.btnColumnsPickerFinance.addEventListener('click', (e) => {
       e.stopPropagation();
       dom.colPickerMenuFinance.classList.toggle('hidden');
+      placeColPickerMenu(dom.colPickerMenuFinance, dom.btnColumnsPickerFinance);
     });
 
     document.addEventListener('click', (e) => {
@@ -6986,6 +7023,7 @@
     dom.btnColumnsPickerConversion.addEventListener('click', (e) => {
       e.stopPropagation();
       dom.colPickerMenuConversion.classList.toggle('hidden');
+      placeColPickerMenu(dom.colPickerMenuConversion, dom.btnColumnsPickerConversion);
     });
 
     document.addEventListener('click', (e) => {
@@ -8112,6 +8150,7 @@
     dom.btnColumnsPickerLogs.addEventListener('click', (e) => {
       e.stopPropagation();
       dom.colPickerMenuLogs.classList.toggle('hidden');
+      placeColPickerMenu(dom.colPickerMenuLogs, dom.btnColumnsPickerLogs);
     });
 
     document.addEventListener('click', (e) => {
