@@ -298,7 +298,7 @@ def _record_mode(record: Dict[str, Any]) -> str:
 PAYMENT_GROUP_OF_MODE = {
     'SECURED SALE': 'DIRECT_SALE', 'SS - FROM LAND': 'DIRECT_SALE', 'SS - FROM ROW': 'DIRECT_SALE',
     'SECURED LEASE': 'LEASE_DIRECT', 'SL - FROM LAND': 'LEASE_DIRECT',
-    'SS - STP': 'STP_SALE', 'SS - FROM LAND STP': 'STP_SALE', 'SS - TO': 'STP_SALE', 'SOLD TO PARTNER': 'STP_SALE',
+    'SS - STP': 'STP_SALE', 'SS - FROM LAND STP': 'STP_SALE', 'SOLD TO PARTNER': 'STP_SALE',
     'SL - STP': 'LEASE_STP', 'SL - FROM LAND STP': 'LEASE_STP',
     'SECURED SALE NON SP': 'NON_SP', 'SECURED LEASE NON SP': 'NON_SP',
     'RESCINDED': 'RESCINDED', 'SS - RESCINDED': 'RESCINDED', 'SL - RESCINDED': 'RESCINDED',
@@ -318,7 +318,7 @@ def _payment_group(mode: Any) -> str:
     """Payment group of a Mode.
 
     DIRECT_SALE  SECURED SALE, SS - FROM LAND, SS - FROM ROW   tracked as paid/unpaid
-    STP_SALE     SS - STP, SS - FROM LAND STP, SS - TO (SOLD TO PARTNER) turned over to partner; buyer pays balance
+    STP_SALE     SS - STP, SS - FROM LAND STP (SOLD TO PARTNER) turned over to partner; buyer pays balance
     LEASE_DIRECT SECURED LEASE, SL - FROM LAND                 rent basis
     LEASE_STP    SL - STP, SL - FROM LAND STP                  turned over to partner
     NON_SP       SECURED SALE NON SP, SECURED LEASE NON SP     not in % paid
@@ -4268,7 +4268,7 @@ class Api:
 
         # Financial Settlement Breakdown (decision 2026-10-13).
         # Settled / Partially paid / Unpaid apply to DIRECT SALE accounts only:
-        # - STP SALE (SS - STP, SS - FROM LAND STP, SS - TO): the buyer owes the balance after
+        # - STP SALE (SS - STP, SS - FROM LAND STP): the buyer owes the balance after
         #   turnover, so it is counted but not tracked as paid/unpaid.
         # - LEASE (SECURED LEASE, SL - ...): TCP is total rent over the lease term, so
         #   % paid reflects time elapsed, not arrears; counted only ("LEASE - RENT BASIS").
